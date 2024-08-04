@@ -16,4 +16,5 @@ func init() {
 	}
 
 	RootCommand.AddCommand(agentCmd)
+	RootCommand.AddCommand(versionCmd)
 }
