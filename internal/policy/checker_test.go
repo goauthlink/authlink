@@ -9,7 +9,6 @@ import (
 )
 
 type testCase struct {
-	name    string
 	in      CheckInput
 	allowed bool
 }

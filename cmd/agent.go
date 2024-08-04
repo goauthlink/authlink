@@ -16,15 +16,21 @@ var (
 	addr     string
 )
 
+func exitErr(msg string) {
+	fmt.Println(msg)
+	os.Exit(1)
+}
+
 func init() {
 	agentCmd = &cobra.Command{
 		Use:   "agent",
 		Short: "Start policy agent",
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
-				agentCmd.Usage()
-				fmt.Println("error: [policy-file] is required argument")
-				os.Exit(1)
+				if err := agentCmd.Usage(); err != nil {
+					exitErr(err.Error())
+				}
+				exitErr("error: [policy-file] is required argument")
 			}
 
 			config := agent.DefaultConfig()
@@ -34,20 +40,17 @@ func init() {
 
 			parsedLogLevel, err := logging.ParseLevel(logLevel)
 			if err != nil {
-				fmt.Printf("init logger: %e", err)
-				os.Exit(1)
+				exitErr("init logger: " + err.Error())
 			}
 			config.LogLevel = parsedLogLevel
 
 			agent, err := agent.Init(config)
 			if err != nil {
-				fmt.Print(err.Error())
-				os.Exit(1)
+				exitErr(err.Error())
 			}
 
 			if err := agent.Run(); err != nil {
-				fmt.Print(err.Error())
-				os.Exit(1)
+				exitErr(err.Error())
 			}
 		},
 	}

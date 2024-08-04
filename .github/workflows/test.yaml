@@ -1,0 +1,34 @@
+name: PR Check
+
+on: [push, pull_request]
+
+jobs:
+
+  go-test:
+    name: Go Test
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: [1.22.x]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+      - uses: actions/checkout@v4
+
+      - run: make test
+        timeout-minutes: 2 
+
+  go-lint:
+    name: Go Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59

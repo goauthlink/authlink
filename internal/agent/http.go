@@ -40,7 +40,8 @@ func (httpServer *httpServer) serve() error {
 }
 
 func (httpServer *httpServer) shutdown(ctx context.Context) error {
-	ctxd, _ := context.WithTimeout(ctx, time.Second*5)
+	ctxd, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
 	err := httpServer.srv.Shutdown(ctxd)
 	if err != nil {
 		return fmt.Errorf("shutdown http server: %w", err)

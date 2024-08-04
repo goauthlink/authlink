@@ -13,7 +13,6 @@ import (
 )
 
 type Agent struct {
-	config *Config
 	server *httpServer
 	logger *slog.Logger
 }
