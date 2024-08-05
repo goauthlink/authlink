@@ -47,7 +47,7 @@ policies:
 	}
 
 	checker := NewChecker(prepCfg)
-	checker.UpdateData(data)
+	checker.SetData(data)
 
 	cases := []testCase{
 		{

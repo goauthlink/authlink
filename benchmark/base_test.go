@@ -91,7 +91,7 @@ policies:
 	}
 
 	checker := policy.NewChecker(prepCfg)
-	checker.UpdateData(data)
+	checker.SetData(data)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

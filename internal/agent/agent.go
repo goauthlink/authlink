@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -13,8 +14,9 @@ import (
 )
 
 type Agent struct {
-	server *httpServer
-	logger *slog.Logger
+	server  *httpServer
+	logger  *slog.Logger
+	checker *policy.Checker
 }
 
 func Init(config Config) (*Agent, error) {
@@ -25,20 +27,23 @@ func Init(config Config) (*Agent, error) {
 	}
 
 	agent.logger.Info("init policy")
-	policyData, err := os.ReadFile(config.PolicyFile)
+	prepConfig, err := policy.PrepareConfig(config.Policy)
 	if err != nil {
 		return nil, fmt.Errorf("init policy: %w", err)
 	}
 
-	prepConfig, err := policy.PrepareConfig(policyData)
-	if err != nil {
-		return nil, fmt.Errorf("init policy: %w", err)
+	agent.checker = policy.NewChecker(prepConfig)
+	if len(config.Data) > 0 {
+		agent.logger.Info("init data")
+		var data interface{}
+		if err := json.Unmarshal(config.Data, &data); err != nil {
+			return nil, fmt.Errorf("parse data json: %w", err)
+		}
+		agent.checker.SetData(data)
 	}
-
-	checker := policy.NewChecker(prepConfig)
 
 	agent.logger.Info("init http server")
-	agent.server = initHttpServer(config, agent.logger, checker)
+	agent.server = initHttpServer(config, agent.logger, agent.checker)
 
 	return agent, nil
 }

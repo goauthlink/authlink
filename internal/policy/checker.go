@@ -29,8 +29,12 @@ func NewChecker(prepCfg *preparedConfig) *Checker {
 	}
 }
 
-func (c *Checker) UpdateData(data interface{}) {
+func (c *Checker) SetData(data interface{}) {
 	c.data = data
+}
+
+func (c *Checker) Data() interface{} {
+	return c.data
 }
 
 func (c *Checker) Check(in CheckInput) (bool, error) {
