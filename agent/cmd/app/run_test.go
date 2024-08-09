@@ -1,4 +1,4 @@
-package cmd
+package app
 
 import (
 	"log/slog"
@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createTestCmdParams() agentCmdParams {
-	return agentCmdParams{
+func createTestCmdParams() runCmdParams {
+	return runCmdParams{
 		logLevel: "info",
 		addr:     ":8080",
 	}

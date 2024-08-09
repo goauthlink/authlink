@@ -1,0 +1,12 @@
+FROM alpine:3.20 
+
+WORKDIR /apc
+
+ARG TARGETOS
+ARG TARGETARCH
+
+COPY dist/agent_${TARGETOS}_${TARGETARCH} /apc/agent
+
+ENV PATH=${PATH}:/apc
+
+ENTRYPOINT ["agent"]

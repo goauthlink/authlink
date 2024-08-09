@@ -10,7 +10,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/auth-policy-controller/apc/internal/policy"
+	"github.com/auth-policy-controller/apc/pkg/policy"
 )
 
 type Agent struct {

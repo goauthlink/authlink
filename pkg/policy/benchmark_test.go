@@ -1,9 +1,7 @@
-package benchmark
+package policy
 
 import (
 	"testing"
-
-	"github.com/auth-policy-controller/apc/internal/policy"
 )
 
 func Benchmark_CheckBase(b *testing.B) {
@@ -27,15 +25,15 @@ policies:
     method: ["get"]
     allow: ["client2"]`
 
-	prepCfg, err := policy.PrepareConfig([]byte(config))
+	prepCfg, err := PrepareConfig([]byte(config))
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	checker := policy.NewChecker(prepCfg)
+	checker := NewChecker(prepCfg)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := checker.Check(policy.CheckInput{
+		_, err := checker.Check(CheckInput{
 			Uri:     "/user/1",
 			Method:  "GET",
 			Headers: map[string]string{"x-source": "client1"},
@@ -72,7 +70,7 @@ policies:
   - uri: ["/ep1"]
     allow: ["{.team1[*].name}"]`
 
-	prepCfg, err := policy.PrepareConfig([]byte(config))
+	prepCfg, err := PrepareConfig([]byte(config))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -90,12 +88,12 @@ policies:
 		},
 	}
 
-	checker := policy.NewChecker(prepCfg)
+	checker := NewChecker(prepCfg)
 	checker.SetData(data)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		result, err := checker.Check(policy.CheckInput{
+		result, err := checker.Check(CheckInput{
 			Uri:     "/ep1",
 			Method:  "GET",
 			Headers: map[string]string{"x-source": "client1"},

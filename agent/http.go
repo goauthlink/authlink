@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auth-policy-controller/apc/internal/policy"
+	"github.com/auth-policy-controller/apc/pkg/policy"
 )
 
 type httpServer struct {
