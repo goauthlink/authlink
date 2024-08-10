@@ -12,17 +12,18 @@ lint:
 test:
 	go test ./... -v
 
-clean:
-	rm -rf ./dist/*
+clean-bin:
+	rm -rf ${RELEASE_DIR}/*
 
 agent-build-bin:
+	mkdir -p $(RELEASE_DIR)
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(AGENT_BIN) agent/cmd/main.go 
 	chmod +x $(AGENT_BIN)
 	mv $(AGENT_BIN) $(RELEASE_DIR)/
-	cd $(RELEASE_DIR)/ && shasum -a 256 $(AGENT_BIN) > $(AGENT_BIN).sha256
+	cd $(RELEASE_DIR)/  && tar -zcvf $(AGENT_BIN).tar.gz $(AGENT_BIN) && shasum -a 256 $(AGENT_BIN).tar.gz > $(AGENT_BIN).tar.gz.sha256
 
 agent-build-image:
-	docker build --build-arg="TARGETOS=${GOOS}" --build-arg="TARGETARCH=${GOARCH}" -f docker/Dockerfile.agent -t ${AGENT_IMAGE_NAME}:${VERSION} .
+	docker build --build-arg="TARGETOS=${GOOS}" --build-arg="TARGETARCH=${GOARCH}" -f Dockerfile.agent -t ${AGENT_IMAGE_NAME}:${VERSION} .
 
 agent-publish-image:
 	docker push ${AGENT_IMAGE_NAME}:${VERSION}
