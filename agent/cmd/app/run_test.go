@@ -38,6 +38,19 @@ func createFiles(t *testing.T) (string, func()) {
 	return rootDir, cleanFs
 }
 
+func Test_AgentOtherParams(t *testing.T) {
+	rootDir, cleanFs := createFiles(t)
+	defer cleanFs()
+
+	params := createTestCmdParams()
+	params.updateFilesSeconds = 60
+
+	config, err := prepareConfig([]string{rootDir + "/policy.yaml"}, params)
+	require.NoError(t, err)
+
+	assert.Equal(t, params.updateFilesSeconds, config.UpdateFilesSeconds)
+}
+
 func Test_AgentLogLevel(t *testing.T) {
 	rootDir, cleanFs := createFiles(t)
 	defer cleanFs()
@@ -55,29 +68,28 @@ func Test_AgentArgsPolicyAndData(t *testing.T) {
 	rootDir, cleanFs := createFiles(t)
 	defer cleanFs()
 
+	policyFilePath := rootDir + "/policy.yaml"
+	dataFilePath := rootDir + "/data.json"
+
 	// ---
-	config, err := prepareConfig([]string{rootDir + "/policy.yaml", rootDir + "/data.json"}, createTestCmdParams())
+	config, err := prepareConfig([]string{policyFilePath, dataFilePath}, createTestCmdParams())
 	require.NoError(t, err)
 
-	assert.Equal(t, []byte(testCommonPolicy), config.Policy)
-	assert.Equal(t, []byte(testCommonData), config.Data)
+	assert.Equal(t, policyFilePath, config.PolicyFilePath)
+	assert.Equal(t, dataFilePath, config.DataFilePath)
 
 	// ---
-	config, err = prepareConfig([]string{rootDir + "/data.json", rootDir + "/policy.yaml"}, createTestCmdParams())
+	config, err = prepareConfig([]string{dataFilePath, policyFilePath}, createTestCmdParams())
 	require.NoError(t, err)
 
-	assert.Equal(t, []byte(testCommonPolicy), config.Policy)
-	assert.Equal(t, []byte(testCommonData), config.Data)
+	assert.Equal(t, dataFilePath, config.DataFilePath)
+	assert.Equal(t, policyFilePath, config.PolicyFilePath)
 
 	// ---
-	config, err = prepareConfig([]string{rootDir + "/policy.yaml"}, createTestCmdParams())
+	config, err = prepareConfig([]string{policyFilePath}, createTestCmdParams())
 	require.NoError(t, err)
-	assert.Equal(t, []byte(testCommonPolicy), config.Policy)
-	assert.Equal(t, []byte{}, config.Data)
-
-	// ---
-	_, err = prepareConfig([]string{rootDir + "/data.json"}, createTestCmdParams())
-	require.ErrorContains(t, err, usageArgs)
+	assert.Equal(t, policyFilePath, config.PolicyFilePath)
+	assert.Equal(t, "", config.DataFilePath)
 
 	// ---
 	_, err = prepareConfig([]string{}, createTestCmdParams())
