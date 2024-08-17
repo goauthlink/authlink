@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"sync"
 )
 
 type CheckInput struct {
 	Uri     string
 	Method  string
 	Headers map[string]string
-	Tls     string
 }
 
 type preparedCn struct {
@@ -19,26 +19,51 @@ type preparedCn struct {
 }
 
 type Checker struct {
-	prepCfg *preparedConfig
-	data    interface{}
+	prepCfg   *preparedConfig
+	rawPolicy []byte
+	data      interface{}
+	dataMux   sync.RWMutex
 }
 
-func NewChecker(prepCfg *preparedConfig) *Checker {
+func NewChecker() *Checker {
 	return &Checker{
-		prepCfg: prepCfg,
+		dataMux: sync.RWMutex{},
 	}
 }
 
+func (c *Checker) SetPolicy(policy []byte) error {
+	prepConfig, err := PrepareConfig(policy)
+	if err != nil {
+		return fmt.Errorf("parse policy: %s", err)
+	}
+
+	c.dataMux.Lock()
+	c.prepCfg = prepConfig
+	c.rawPolicy = policy
+	c.dataMux.Unlock()
+
+	return nil
+}
+
 func (c *Checker) SetData(data interface{}) {
+	c.dataMux.Lock()
 	c.data = data
+	c.dataMux.Unlock()
 }
 
 func (c *Checker) Data() interface{} {
 	return c.data
 }
 
+func (c *Checker) Policy() []byte {
+	return c.rawPolicy
+}
+
 func (c *Checker) Check(in CheckInput) (bool, error) {
 	// todo: decision logger
+
+	c.dataMux.RLock()
+	defer c.dataMux.RUnlock()
 
 	// define client prefix and name
 	cn := c.defineCn(in)
@@ -58,7 +83,6 @@ func (c *Checker) Check(in CheckInput) (bool, error) {
 			}
 		}
 
-		// println("p", policy.Method[0])
 		if policy.Uri == in.Uri && (policy.Method[0] == "*" || slices.Contains(policy.Method, in.Method)) {
 			isAllowed, err := c.isAllowed(policy.Allow, cn)
 			if err != nil {
@@ -114,7 +138,7 @@ func (c *Checker) isAllowed(allow preparedAllow, cn *preparedCn) (bool, error) {
 }
 
 func (c *Checker) defineCn(in CheckInput) *preparedCn {
-	// todo: задать поведение для не попавших в cn
+	// todo: implement behavior for undefined cn
 	for _, cn := range c.prepCfg.Cn {
 		if len(cn.Header) > 0 {
 			if val, ok := in.Headers[cn.Header]; ok {
@@ -124,8 +148,6 @@ func (c *Checker) defineCn(in CheckInput) *preparedCn {
 				}
 			}
 		}
-		// todo: jwt
-		// todo: tls
 	}
 
 	return nil

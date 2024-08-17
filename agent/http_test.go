@@ -15,9 +15,8 @@ import (
 func initTestHttpServer(t *testing.T, pol *string) (*httpServer, *bytes.Buffer) {
 	var checker *policy.Checker
 	if pol != nil {
-		prepCfg, err := policy.PrepareConfig([]byte(*pol))
-		require.NoError(t, err)
-		checker = policy.NewChecker(prepCfg)
+		checker = policy.NewChecker()
+		require.NoError(t, checker.SetPolicy([]byte(*pol)))
 	}
 
 	buf := &bytes.Buffer{}

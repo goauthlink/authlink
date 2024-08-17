@@ -30,9 +30,6 @@ policies:
     allow: ["$var1"]
 `
 
-	prepCfg, err := PrepareConfig([]byte(config))
-	require.NoError(t, err)
-
 	data := map[string][]struct {
 		name string
 	}{
@@ -46,7 +43,8 @@ policies:
 		},
 	}
 
-	checker := NewChecker(prepCfg)
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
 	checker.SetData(data)
 
 	cases := []testCase{
@@ -141,10 +139,8 @@ policies:
   - uri: ["/ep2"]
     allow: ["$var2", "$var3"]`
 
-	prepCfg, err := PrepareConfig([]byte(config))
-	require.NoError(t, err)
-
-	checker := NewChecker(prepCfg)
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
 
 	cases := []testCase{
 		{
@@ -207,10 +203,8 @@ policies:
   - uri: ["/ep2"]
     allow: ["*"]`
 
-	prepCfg, err := PrepareConfig([]byte(config))
-	require.NoError(t, err)
-
-	checker := NewChecker(prepCfg)
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
 
 	cases := []testCase{
 		{
@@ -269,10 +263,8 @@ cn:
 default:
   - client1`
 
-	prepCfg, err := PrepareConfig([]byte(config))
-	require.NoError(t, err)
-
-	checker := NewChecker(prepCfg)
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
 
 	cases := []testCase{
 		{
@@ -316,10 +308,8 @@ policies:
     method: ["get"]
     allow: ["prefix:client1"]`
 
-	prepCfg, err := PrepareConfig([]byte(config))
-	require.NoError(t, err)
-
-	checker := NewChecker(prepCfg)
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
 
 	cases := []testCase{
 		{
@@ -357,10 +347,8 @@ policies:
   - uri: ["~/info"]
     allow: ["client2"]`
 
-	prepCfg, err := PrepareConfig([]byte(config))
-	require.NoError(t, err)
-
-	checker := NewChecker(prepCfg)
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
 
 	cases := []testCase{
 		{
@@ -416,10 +404,8 @@ policies:
     method: ["put"]
     allow: ["client3"]`
 
-	prepCfg, err := PrepareConfig([]byte(config))
-	require.NoError(t, err)
-
-	checker := NewChecker(prepCfg)
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
 
 	cases := []testCase{
 		// get
@@ -493,10 +479,8 @@ policies:
     method: ["get"]
     allow: ["client2"]`
 
-	prepCfg, err := PrepareConfig([]byte(config))
-	require.NoError(t, err)
-
-	checker := NewChecker(prepCfg)
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
 
 	cases := []testCase{
 		{
@@ -536,10 +520,8 @@ policies:
     method: ["get"]
     allow: ["client2"]`
 
-	prepCfg, err := PrepareConfig([]byte(config))
-	require.NoError(t, err)
-
-	checker := NewChecker(prepCfg)
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
 
 	cases := []testCase{
 		{
@@ -579,10 +561,8 @@ policies:
     method: ["post"]
     allow: ["client3"]`
 
-	prepCfg, err := PrepareConfig([]byte(config))
-	require.NoError(t, err)
-
-	checker := NewChecker(prepCfg)
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
 
 	cases := []testCase{
 		// GET user/*

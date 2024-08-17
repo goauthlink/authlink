@@ -1,46 +1,98 @@
 package agent
 
 import (
-	"log/slog"
 	"testing"
+	"time"
 
+	"github.com/auth-policy-controller/apc/test/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func Test_InitData(t *testing.T) {
-	data := `{"users":["user1","user2"]}`
-	policy := `cn:
+const (
+	testData   = `{"users":["user1","user2"]}`
+	testPolicy = `cn:
   - header: "x-source1"
 policies:
   - uri: ["/endpoint"]
     allow: ["client"]`
+)
 
-	config := Config{
-		LogLevel: slog.LevelError,
-		Policy:   []byte(policy),
-		Data:     []byte(data),
+func createFiles(t *testing.T) (string, func()) {
+	rootDir, cleanFs, err := util.MakeTmpFs("", t.Name(), map[string][]byte{
+		"policy.yaml": []byte(testPolicy),
+		"data.json":   []byte(testData),
+		"data.txt":    []byte("text"),
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	agent, err := Init(config)
+	return rootDir, cleanFs
+}
+
+func Test_InitFiles(t *testing.T) {
+	rootDir, cleanFs := createFiles(t)
+	defer cleanFs()
+
+	config := DefaultConfig()
+	config.DataFilePath = rootDir + "/data.json"
+	config.PolicyFilePath = rootDir + "/policy.yaml"
+
+	agent, err := InitNewAgent(config)
 	require.NoError(t, err)
 
 	checkerD := agent.checker.Data()
+
 	assert.Equal(t, map[string]interface{}{"users": []interface{}{"user1", "user2"}}, checkerD)
 }
 
 func Test_InitNoData(t *testing.T) {
-	policy := `cn:
-  - header: "x-source1"
+	rootDir, cleanFs := createFiles(t)
+	defer cleanFs()
+
+	config := DefaultConfig()
+	config.PolicyFilePath = rootDir + "/policy.yaml"
+
+	agent, err := InitNewAgent(config)
+	require.NoError(t, err)
+
+	assert.Equal(t, nil, agent.checker.Data())
+}
+
+func Test_UpdateFiles(t *testing.T) {
+	rootDir, cleanFs := createFiles(t)
+	defer cleanFs()
+
+	config := DefaultConfig()
+	config.PolicyFilePath = rootDir + "/policy.yaml"
+	config.UpdateFilesSeconds = 1
+
+	agent, err := InitNewAgent(config)
+	require.NoError(t, err)
+
+	stop := make(chan struct{}, 1)
+	go func() {
+		err = agent.Run(stop)
+	}()
+	time.Sleep(time.Second * 1)
+
+	assert.Equal(t, []byte(testPolicy), agent.checker.Policy())
+
+	newPolicy := `cn:
+  - header: "x-source2"
 policies:
-  - uri: ["/endpoint"]
-    allow: ["client"]`
+  - uri: ["/endpoint2"]
+    allow: ["client2"]`
 
-	config := Config{
-		LogLevel: slog.LevelError,
-		Policy:   []byte(policy),
-	}
+	require.NoError(t, util.ReWriteFileContent(rootDir+"/policy.yaml", []byte(newPolicy)))
 
-	_, err := Init(config)
+	t.Log("waiting for file updateing")
+	time.Sleep(time.Second * 3)
+
+	assert.Equal(t, []byte(newPolicy), agent.checker.Policy())
+
+	stop <- struct{}{}
+
 	require.NoError(t, err)
 }
