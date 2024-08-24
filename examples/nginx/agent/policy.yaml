@@ -1,0 +1,9 @@
+cn:
+  - header: "x-source"
+policies:
+  - uri: ["/user"]
+    method: ["get"]
+    allow: ["client2"]
+  - uri: ["/user"]
+    method: ["put"]
+    allow: ["client3"]
