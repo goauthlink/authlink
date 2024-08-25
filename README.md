@@ -1,1 +1,156 @@
 # Auth Policy Controller
+
+AuthPolicyController is an open-source simple to configure, high-performance authorization service focused on working with HTTP requests. Integrates into the infrastructure layer of your project and does not require changes to your applications. Configured in YAML format (without new declarative languages) so that your team can easily get started with it.
+
+## Getting started 
+
+See example of [nginx integration](./examples/nginx).
+
+Or run as a container:
+
+```docker run -v ./policy.yaml:/policy.yaml -v ./data.json:/data.json -p 8080:8080 ghcr.io/auth-policy-controller/agent:latest run /policy.yaml /data.json```
+
+You can see the detailed flags of the `run` command [bellow](#run-options).
+
+## Configuring policies
+
+Configuration is a definition of an unlimited number of access rules (policies) for URI. Each policy consists of:
+
+- one or more URIs (regular expressions can be used), to which the policy should be applied
+- [HTTP methods](https://developer.mozilla.org/ru/docs/Web/HTTP/Methods) (applicable to any of the specified URIs)
+- client names that are allowed access, while all others will be denied
+
+The default client name is extracted from the HTTP header `x-source`, see below how to override it. Empty clients list means access will be denied to everyone, since no client will match the rule. To allow everyone, you can use a wildcard (`*`).
+
+Example:
+
+```yaml
+policies:
+  - uri: ["/users", "/order/[0-9]+/info"]
+    method: ["get"]
+    allow: ["admin"]
+  - uri: ["/order"]
+    method: ["post"]
+    allow: ["*"] # wildcard means - access is allowed for all clients
+```
+
+The same URI can only be used once. Otherwise, it will not be clear which rule should take effect first. Special attention should be paid to the use of regular expressions, as the likelihood of pattern crossmatching there is higher.
+
+### Policy check order
+
+The parser checks policies from top to bottom until the first match with the URI template is found and immediately returns the result without checking the remaining policies. Please note that in each policy, first the match with non-regular expression patterns is checked, and then with regular expressions.
+
+### Multiple client name sources
+
+By default, the client name is determined from the HTTP header `x-source`, but this behavior can be changed and even use multiple sources with prefixes.
+
+Example:
+
+```yaml
+cn:
+  - header: "x-source" # without prefix
+  - header: "admin-name"
+    prefix: "admin:"
+policies:
+  - uri: ["/users", "/order/[0-9]+/info"]
+    method: ["get"]
+    allow: ["admin:jhon", "admin:jessica"]
+  - uri: ["/order"]
+    method: ["post"]
+    allow: ["user", "admin:*"] # you can use wildcard with prefixes
+```
+
+You can configure only one source without a prefix in one configuration file. In the near future, the ability to use JWT tokens to extract the client name will also be added.
+
+### Dynamic data
+
+There are often situations where data changes dynamically, and we need to make authorization decisions based on actual data. For example, when a user's group changes, and we want to give access specifically for the group. You can load data in json format to agent, and search with [JSONPath](https://kubernetes.io/docs/reference/kubectl/jsonpath/), and update [within a time interval](#updating-policy-and-data).
+
+Example:
+
+data:
+
+```json
+{
+    "admins": [
+        {
+            "name": "jhon",
+        },
+        {
+            "name": "jessica",
+        }
+    ],
+    "manager": [
+        {
+            "name": "torin"
+        }
+    ]
+}
+```
+
+policies:
+
+```yaml
+policies:
+  - uri: ["/user"]
+    allow: ["{.admins[*].name}", "jared"]
+  - uri: ["/order"]
+    allow: ["prefix:{.manager[*].name}"]
+```
+
+Query `{.team1[*].name}` returns `["jhon", "jessica"]`. This result that will be used for access checking. At the same time, the list is merged with the other listed clients. That is, the final policy configuration can be represented in this way.
+
+```yaml
+policies:
+  - uri: ["/user"]
+    allow: ["jhon", "jessica", "jared"]
+  - uri: ["/order"]
+    allow: ["torin"]
+```
+
+You don't need to update the policies, but only update the data.
+
+### Variables 
+
+Variables allow to combine clients into groups (including dynamic data) to use them several times. For example:
+
+```yaml
+cn:
+  - header: "x-source"
+  - header: "admin"
+    prefix: "admin:"
+vars:
+  super_admins: ["admin:jhon", "admin:jessica"]
+  admins: ["admin:*"]
+  managers: ["prefix:{.manager[*].name}"]
+policies:
+  - uri: ["/user"]
+    allow: ["$admins", "jared"]
+  - uri: ["/order"]
+    allow: ["$managers"]
+```
+
+## Run options 
+
+Agent run command signature
+
+```bash
+Usage:
+  agent run [flags] [policy-file.yaml] [data-file.json (optional)]
+
+Flags:
+      --addr string                set listening address of the http server (e.g., [ip]:<port>) (default [:8080]) (default ":8080")
+  -h, --help                       help for run
+      --log-level string           set log level (default info) (default "info")
+      --update-files-seconds int   set policy/data file updating period (seconds) (default 0 - do not update)
+```
+
+- `policy-file.yaml` [authorization policies](#configuring-policies)
+- `data-file.json` [dynamic data](#dynamic-data) (optional)
+
+The order of files doesn't matter. Policies are always expected in `yaml`, and dynamic data in `json`. Using the `--update-files-seconds` flag, you can specify the number of seconds after which the agent will reload the files again, thereby updating them.
+
+## How to contribute
+
+- make a pull request to the latest release branch (release-*)
+- [create issue](https://github.com/auth-policy-controller/apc/issues/new)
