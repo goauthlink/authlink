@@ -14,7 +14,7 @@ services:
       - backend
 
   agent:
-    image: ghcr.io/auth-policy-controller/agent:0.2.0
+    image: ghcr.io/auth-policy-controller/agent:latest
     command: run --addr :8090 /policy.yaml
     volumes:
       - type: bind
