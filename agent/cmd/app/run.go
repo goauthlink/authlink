@@ -6,13 +6,15 @@ import (
 	"path/filepath"
 
 	"github.com/auth-policy-controller/apc/agent"
+	"github.com/auth-policy-controller/apc/pkg/cmd"
 	"github.com/auth-policy-controller/apc/pkg/logging"
 	"github.com/spf13/cobra"
 )
 
 type runCmdParams struct {
-	logLevel string
-	addr     string
+	logLevel           string
+	addr               string
+	updateFilesSeconds int
 }
 
 func exitErr(msg string) {
@@ -26,25 +28,34 @@ func newRunCmd() *cobra.Command {
 	runCmd := &cobra.Command{
 		Use:   "run",
 		Short: "Start policy agent",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(command *cobra.Command, args []string) {
 			config, err := prepareConfig(args, cmdParams)
 			if err != nil {
 				exitErr(err.Error())
 			}
 
-			agent, err := agent.Init(*config)
+			agent, err := agent.InitNewAgent(*config)
 			if err != nil {
 				exitErr(err.Error())
 			}
 
-			if err := agent.Run(); err != nil {
-				exitErr(err.Error())
-			}
+			stop := make(chan struct{}, 1)
+
+			go func() {
+				if err := agent.Run(stop); err != nil {
+					exitErr(err.Error())
+				}
+			}()
+
+			cmd.WaitSignal(stop)
+
+			agent.WaitUntilCompletion()
 		},
 	}
 
 	runCmd.Flags().StringVar(&cmdParams.logLevel, "log-level", "info", "set log level (default info)")
 	runCmd.Flags().StringVar(&cmdParams.addr, "addr", ":8080", "set listening address of the http server (e.g., [ip]:<port>) (default [:8080])")
+	runCmd.Flags().IntVar(&cmdParams.updateFilesSeconds, "update-files-seconds", 0, "set policy/data file updating period (seconds) (default 0 - do not update)")
 	runCmd.SetUsageTemplate(`Usage:
   {{.UseLine}} [policy-file.yaml] [data-file.json (optional)]
 
@@ -65,26 +76,15 @@ func prepareConfig(args []string, params runCmdParams) (*agent.Config, error) {
 
 	// load files
 	for _, file := range args {
-		data, err := os.ReadFile(file)
-		if err != nil {
-			return nil, fmt.Errorf("load file %s: %w", file, err)
-		}
-
 		switch filepath.Ext(file) {
 		case ".yaml":
-			config.Policy = data
+			config.PolicyFilePath = file
 		case ".json":
-			config.Data = data
+			config.DataFilePath = file
 		default:
 			return nil, fmt.Errorf(usageArgs)
 		}
 	}
-	if len(config.Policy) == 0 {
-		return nil, fmt.Errorf(usageArgs)
-	}
-
-	// other params
-	config.Addr = params.addr
 
 	// parse log level
 	parsedLogLevel, err := logging.ParseLevel(params.logLevel)
@@ -92,6 +92,14 @@ func prepareConfig(args []string, params runCmdParams) (*agent.Config, error) {
 		return nil, fmt.Errorf("init logger: %w", err)
 	}
 	config.LogLevel = parsedLogLevel
+
+	// other params
+	config.Addr = params.addr
+	config.UpdateFilesSeconds = params.updateFilesSeconds
+
+	if err := config.Validate(); err != nil {
+		return nil, fmt.Errorf("params validation error: %w", err)
+	}
 
 	return &config, nil
 }

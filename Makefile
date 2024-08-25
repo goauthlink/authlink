@@ -27,6 +27,8 @@ agent-build-image:
 
 agent-publish-image:
 	docker push ${AGENT_IMAGE_NAME}:${VERSION}
+	docker tag ${AGENT_IMAGE_NAME}:${VERSION} ${AGENT_IMAGE_NAME}:latest
+	docker push ${AGENT_IMAGE_NAME}:latest
 
 agent-test-image:
 	docker run -it --rm ${AGENT_IMAGE_NAME}:${VERSION} version 

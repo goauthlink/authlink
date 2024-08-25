@@ -2,6 +2,8 @@ package policy
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func Benchmark_CheckBase(b *testing.B) {
@@ -25,12 +27,8 @@ policies:
     method: ["get"]
     allow: ["client2"]`
 
-	prepCfg, err := PrepareConfig([]byte(config))
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	checker := NewChecker(prepCfg)
+	checker := NewChecker()
+	require.NoError(b, checker.SetPolicy([]byte(config)))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := checker.Check(CheckInput{
@@ -70,11 +68,6 @@ policies:
   - uri: ["/ep1"]
     allow: ["{.team1[*].name}"]`
 
-	prepCfg, err := PrepareConfig([]byte(config))
-	if err != nil {
-		b.Fatal(err)
-	}
-
 	data := map[string][]struct {
 		name string
 	}{
@@ -88,7 +81,8 @@ policies:
 		},
 	}
 
-	checker := NewChecker(prepCfg)
+	checker := NewChecker()
+	require.NoError(b, checker.SetPolicy([]byte(config)))
 	checker.SetData(data)
 
 	b.ResetTimer()

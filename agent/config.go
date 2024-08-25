@@ -1,23 +1,36 @@
 package agent
 
-import "log/slog"
+import (
+	"fmt"
+	"log/slog"
+)
 
 type Config struct {
-	Addr     string
-	LogLevel slog.Level
-	Policy   []byte
-	Data     []byte
+	Addr               string
+	LogLevel           slog.Level
+	PolicyFilePath     string
+	DataFilePath       string
+	UpdateFilesSeconds int
 }
 
 func DefaultConfig() Config {
 	return Config{
-		Addr:     ":8080",
-		LogLevel: slog.LevelInfo,
-		Policy:   []byte{},
-		Data:     []byte{},
+		Addr:               ":8080",
+		LogLevel:           slog.LevelInfo,
+		UpdateFilesSeconds: 0,
+		PolicyFilePath:     "policy.yaml",
+		DataFilePath:       "",
 	}
 }
 
-func (c *Config) Validate(logger *slog.Logger) error {
+const (
+	errUpdatePolicyFileSeconds = "update policy file period must not be less than 0 seconds"
+)
+
+func (c *Config) Validate() error {
+	if c.UpdateFilesSeconds < 0 {
+		return fmt.Errorf(errUpdatePolicyFileSeconds)
+	}
+
 	return nil
 }
