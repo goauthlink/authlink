@@ -48,11 +48,13 @@ func Test_AgentOtherParams(t *testing.T) {
 
 	params := createTestCmdParams()
 	params.updateFilesSeconds = 60
+	params.monitoringAddr = ":8181"
 
 	config, err := prepareConfig([]string{rootDir + "/policy.yaml"}, params)
 	require.NoError(t, err)
 
 	assert.Equal(t, params.updateFilesSeconds, config.UpdateFilesSeconds)
+	assert.Equal(t, params.monitoringAddr, config.MonitoringAddr)
 }
 
 func Test_AgentLogLevel(t *testing.T) {

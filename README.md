@@ -136,12 +136,12 @@ Agent run command signature
 
 ```bash
 Usage:
-  agent run [flags] [policy-file.yaml] [data-file.json (optional)]
+  main run [flags] [policy-file.yaml] [data-file.json (optional)]
 
 Flags:
       --addr string                set listening address of the http server (e.g., [ip]:<port>) (default [:8080]) (default ":8080")
-  -h, --help                       help for run
       --log-level string           set log level (default info) (default "info")
+      --monitoring-addr string     set listening address for the /health and /metrics (e.g., [ip]:<port>) (default [:9191]) (default ":9191")
       --update-files-seconds int   set policy/data file updating period (seconds) (default 0 - do not update)
 ```
 
@@ -149,6 +149,55 @@ Flags:
 - `data-file.json` [dynamic data](#dynamic-data) (optional)
 
 The order of files doesn't matter. Policies are always expected in `yaml`, and dynamic data in `json`. Using the `--update-files-seconds` flag, you can specify the number of seconds after which the agent will reload the files again, thereby updating them.
+
+## Metrics
+
+APC agent exposes HTTP endpoint that responds metrics in the [Prometheus exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format). By default metrics endpoint is available at `"http://localhost:9191/stats/prometheus"`, but you can configure host and port with `--monitoring-addr` [option](#run-options).
+
+To configure Prometheus to scrape from APC you'll need a YAML configuration file similar to this:
+
+```yaml
+global:
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: apc 
+    metrics_path: "/stats/prometheus"
+    static_configs:
+      - targets: ['localhost:9191']
+```
+
+APC agent exposes these metrics
+
+| metric name | metric type | description |
+|-------------|-------------|-------------|
+| check_rq_total | Counter | A counter of check requests |
+| check_rq_failed | Counter | A counter of failed check requests (500 response code) |
+| check_rq_duration | Histogram | A histogram of duration for check requests |
+
+Also agent exposes runtime metrics provided automatically by the [Prometheus Go Client](https://github.com/prometheus/client_golang). They are prefixed with `go_*` and `process_*` (only for linux).
+
+- go_memstats_alloc_bytes
+- go_memstats_alloc_bytes_total
+- go_memstats_sys_bytes
+- go_memstats_mallocs_total
+- go_memstats_frees_total
+- go_memstats_heap_alloc_bytes
+- go_memstats_heap_sys_bytes
+- go_memstats_heap_idle_bytes
+- go_memstats_heap_inuse_bytes
+- go_memstats_heap_released_bytes
+- go_memstats_heap_objects
+- go_memstats_stack_inuse_bytes
+- go_memstats_stack_sys_bytes
+- go_memstats_mspan_inuse_bytes
+- go_memstats_mspan_sys_bytes
+- go_memstats_mcache_inuse_bytes
+- go_memstats_mcache_sys_bytes
+- go_memstats_buck_hash_sys_bytes
+- go_memstats_gc_sys_bytes
+- go_memstats_other_sys_bytes
+- go_memstats_next_gc_bytes
 
 ## How to contribute
 
