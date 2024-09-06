@@ -18,6 +18,7 @@ import (
 type runCmdParams struct {
 	logLevel           string
 	addr               string
+	monitoringAddr     string
 	updateFilesSeconds int
 }
 
@@ -59,6 +60,7 @@ func newRunCmd() *cobra.Command {
 
 	runCmd.Flags().StringVar(&cmdParams.logLevel, "log-level", "info", "set log level (default info)")
 	runCmd.Flags().StringVar(&cmdParams.addr, "addr", ":8080", "set listening address of the http server (e.g., [ip]:<port>) (default [:8080])")
+	runCmd.Flags().StringVar(&cmdParams.monitoringAddr, "monitoring-addr", ":9191", "set listening address for the /health and /metrics (e.g., [ip]:<port>) (default [:9191])")
 	runCmd.Flags().IntVar(&cmdParams.updateFilesSeconds, "update-files-seconds", 0, "set policy/data file updating period (seconds) (default 0 - do not update)")
 	runCmd.SetUsageTemplate(`Usage:
   {{.UseLine}} [policy-file.yaml] [data-file.json (optional)]
@@ -99,6 +101,7 @@ func prepareConfig(args []string, params runCmdParams) (*agent.Config, error) {
 
 	// other params
 	config.Addr = params.addr
+	config.MonitoringAddr = params.monitoringAddr
 	config.UpdateFilesSeconds = params.updateFilesSeconds
 
 	if err := config.Validate(); err != nil {

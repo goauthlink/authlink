@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/auth-policy-controller/apc/agent/metrics"
 	"github.com/auth-policy-controller/apc/pkg/policy"
 )
 
@@ -19,10 +20,9 @@ type httpServer struct {
 	srv *http.Server
 }
 
-func initHttpServer(config Config, logger *slog.Logger, checker *policy.Checker) *httpServer {
+func initHttpServer(config Config, logger *slog.Logger, checker *policy.Checker, metrics metrics.Metrics) *httpServer {
 	router := http.NewServeMux()
-	router.Handle("GET /healtz", routerGetHealtzHandler())
-	router.Handle("POST /check", routerPostCheckHandler(logger, checker))
+	router.Handle("POST /check", routerPostCheckHandler(logger, checker, metrics))
 
 	httpSrv := &httpServer{
 		srv: &http.Server{
@@ -36,7 +36,7 @@ func initHttpServer(config Config, logger *slog.Logger, checker *policy.Checker)
 
 func (httpServer *httpServer) serve() error {
 	err := httpServer.srv.ListenAndServe()
-	if err != nil {
+	if err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("http server listening: %w", err)
 	}
 
@@ -46,23 +46,25 @@ func (httpServer *httpServer) serve() error {
 func (httpServer *httpServer) shutdown(ctx context.Context) error {
 	ctxd, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
+
 	err := httpServer.srv.Shutdown(ctxd)
 	if err != nil {
 		return fmt.Errorf("shutdown http server: %w", err)
 	}
+
 	return nil
 }
 
-func routerGetHealtzHandler() http.Handler {
+func routerPostCheckHandler(logger *slog.Logger, checker *policy.Checker, metrics metrics.Metrics) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-}
+		start := time.Now()
 
-func routerPostCheckHandler(logger *slog.Logger, checker *policy.Checker) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			metrics.CheckRqTotalInc(context.Background())
+		}()
+
 		in := policy.CheckInput{
-			Uri:     r.Header.Get("x-path"), // todo: move to setting
+			Uri:     r.Header.Get("x-path"), // todo: move to settings
 			Method:  r.Header.Get("x-method"),
 			Headers: map[string]string{},
 		}
@@ -75,10 +77,14 @@ func routerPostCheckHandler(logger *slog.Logger, checker *policy.Checker) http.H
 
 		allow, err := checker.Check(in)
 		if err != nil {
+			metrics.CheckRqFailedInc(context.Background())
 			logger.Error(fmt.Sprintf("http check failed: %s", err.Error()))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+
+		finish := time.Since(start)
+		metrics.CheckRqDurationObserve(context.Background(), finish.Milliseconds())
 
 		if !allow {
 			w.WriteHeader(http.StatusForbidden)

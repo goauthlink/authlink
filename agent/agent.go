@@ -13,15 +13,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/auth-policy-controller/apc/agent/metrics"
 	"github.com/auth-policy-controller/apc/pkg/policy"
 )
 
 type Agent struct {
-	server  *httpServer
-	logger  *slog.Logger
-	checker *policy.Checker
-	config  Config
-	done    chan struct{}
+	httpServer    *httpServer
+	monitorServer *monitoringServer
+	logger        *slog.Logger
+	checker       *policy.Checker
+	config        Config
+	done          chan struct{}
 }
 
 func InitNewAgent(config Config) (*Agent, error) {
@@ -41,9 +43,16 @@ func InitNewAgent(config Config) (*Agent, error) {
 		return nil, err
 	}
 
-	agent.server = initHttpServer(config, agent.logger, agent.checker)
+	metrics, err := metrics.NewMetrics()
+	if err != nil {
+		return nil, err
+	}
 
+	agent.httpServer = initHttpServer(config, agent.logger, agent.checker, metrics)
 	agent.logger.Info("agent inited")
+
+	agent.monitorServer = initMonitoringServer(config.MonitoringAddr)
+	agent.logger.Info("monitoring inited")
 
 	return agent, nil
 }
@@ -51,19 +60,33 @@ func InitNewAgent(config Config) (*Agent, error) {
 func (a *Agent) Run(stop chan struct{}) error {
 	wg := sync.WaitGroup{}
 	var reserr error
-	errchan := make(chan error, 1)
-
-	defer close(errchan)
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	errchan := make(chan error)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for err := range errchan {
+			if err != nil {
+				a.logger.Error(err.Error())
+				if reserr == nil {
+					reserr = err
+				}
+			}
+		}
+	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := a.server.serve()
-		if err != nil {
-			errchan <- err
-		}
+		errchan <- a.httpServer.serve()
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		errchan <- a.monitorServer.serve()
 	}()
 
 	if a.config.UpdateFilesSeconds > 0 {
@@ -90,28 +113,17 @@ func (a *Agent) Run(stop chan struct{}) error {
 
 	a.logger.Info("agent started")
 
-	select {
-	case err := <-errchan:
-		reserr = err
-		a.logger.Error(err.Error())
-		break
-	case <-stop:
-		a.logger.Info("received exit signal")
-		break
-	}
+	<-stop
+	a.logger.Info("received exit signal")
 
-	a.Shutdown(cancel, ctx)
+	a.logger.Info("shutting down..")
+	a.shutdown(cancel, ctx)
+	close(errchan)
 	wg.Wait()
-
-	a.logger.Info("agent stopped")
-
+	a.logger.Info("agent shutdown")
 	close(a.done)
 
 	return reserr
-}
-
-func (a *Agent) WaitUntilCompletion() {
-	<-a.done
 }
 
 func (a *Agent) updateFiles() error {
@@ -144,9 +156,19 @@ func (a *Agent) updateFiles() error {
 	return nil
 }
 
-func (agent *Agent) Shutdown(cancel context.CancelFunc, ctx context.Context) {
+func (agent *Agent) shutdown(cancel context.CancelFunc, ctx context.Context) {
 	cancel()
-	if err := agent.server.shutdown(ctx); err != nil {
+	if err := agent.httpServer.shutdown(ctx); err != nil {
 		agent.logger.Error(err.Error())
 	}
+	agent.logger.Info("http server stopped")
+
+	if err := agent.monitorServer.shutdown(ctx); err != nil {
+		agent.logger.Error(err.Error())
+	}
+	agent.logger.Info("monitoring server stopped")
+}
+
+func (a *Agent) WaitUntilCompletion() {
+	<-a.done
 }

@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	Addr               string
+	MonitoringAddr     string
 	LogLevel           slog.Level
 	PolicyFilePath     string
 	DataFilePath       string
@@ -20,6 +21,7 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		Addr:               ":8080",
+		MonitoringAddr:     ":9191",
 		LogLevel:           slog.LevelInfo,
 		UpdateFilesSeconds: 0,
 		PolicyFilePath:     "policy.yaml",
