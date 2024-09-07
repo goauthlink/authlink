@@ -1,16 +1,26 @@
 # Auth Policy Controller
 
-AuthPolicyController is an open-source simple to configure, high-performance authorization service focused on working with HTTP requests. Integrates into the infrastructure layer of your project and does not require changes to your applications. Configured in YAML format (without new declarative languages) so that your team can easily get started with it.
+Auth Policy Controller (APC) is an open-source simple to configure, high-performance authorization service focused on working with HTTP requests. Integrates into the infrastructure layer of your project and does not require changes to your applications. Configured in YAML format (without new declarative languages) so that your team can easily get started with it.
 
 ## Getting started 
 
 See example of [nginx integration](./examples/nginx).
 
-Or run as a container:
+### Run as a container:
 
 ```docker run -v ./policy.yaml:/policy.yaml -v ./data.json:/data.json -p 8080:8080 ghcr.io/auth-policy-controller/agent:latest run /policy.yaml /data.json```
 
 You can see the detailed flags of the `run` command [bellow](#run-options).
+
+### Static binaries 
+
+Download from [releases on GitHub (expand "Assets")](https://github.com/auth-policy-controller/apc/releases) archive for you OS and ARCH (supported linux and macos)
+
+```sh
+curl -L https://github.com/auth-policy-controller/apc/releases/download/v{version}/agent_{os}_{arch}.tar.gz > agent.tar.gz 
+tar -xvf agent.tar.gz
+mv agent_{os}_{arch} /usr/local/bin/apcagent
+```
 
 ## Configuring policies
 
