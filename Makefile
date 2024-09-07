@@ -13,7 +13,7 @@ AGENT_BIN := agent_$(GOOS)_$(GOARCH)
 lint:
 	golangci-lint run
 
-test:
+tests:
 	go test ./... -v
 
 clean-bin:

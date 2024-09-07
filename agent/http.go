@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auth-policy-controller/apc/agent/metrics"
+	"github.com/auth-policy-controller/apc/agent/observe"
 	"github.com/auth-policy-controller/apc/pkg/policy"
 )
 
@@ -20,7 +20,7 @@ type httpServer struct {
 	srv *http.Server
 }
 
-func initHttpServer(config Config, logger *slog.Logger, checker *policy.Checker, metrics metrics.Metrics) *httpServer {
+func initHttpServer(config Config, logger *slog.Logger, checker *policy.Checker, metrics observe.Metrics) *httpServer {
 	router := http.NewServeMux()
 	router.Handle("POST /check", routerPostCheckHandler(logger, checker, metrics))
 
@@ -55,7 +55,7 @@ func (httpServer *httpServer) shutdown(ctx context.Context) error {
 	return nil
 }
 
-func routerPostCheckHandler(logger *slog.Logger, checker *policy.Checker, metrics metrics.Metrics) http.Handler {
+func routerPostCheckHandler(logger *slog.Logger, checker *policy.Checker, metrics observe.Metrics) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
@@ -75,7 +75,7 @@ func routerPostCheckHandler(logger *slog.Logger, checker *policy.Checker, metric
 
 		// todo: allow_on_err
 
-		allow, err := checker.Check(in)
+		result, err := checker.Check(in)
 		if err != nil {
 			metrics.CheckRqFailedInc(context.Background())
 			logger.Error(fmt.Sprintf("http check failed: %s", err.Error()))
@@ -86,7 +86,7 @@ func routerPostCheckHandler(logger *slog.Logger, checker *policy.Checker, metric
 		finish := time.Since(start)
 		metrics.CheckRqDurationObserve(context.Background(), finish.Milliseconds())
 
-		if !allow {
+		if !result.Allow {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
