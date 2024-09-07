@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auth-policy-controller/apc/agent/metrics"
+	"github.com/auth-policy-controller/apc/agent/observe"
 	"github.com/auth-policy-controller/apc/pkg/policy"
 )
 
@@ -38,12 +38,18 @@ func InitNewAgent(config Config) (*Agent, error) {
 	agent.logger.Info("start initing")
 
 	agent.checker = policy.NewChecker()
+	if config.LogCheckResults {
+		checkLogger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}))
+		agent.checker.SetResultLogger(checkLogger)
+	}
 
 	if err := agent.updateFiles(); err != nil {
 		return nil, err
 	}
 
-	metrics, err := metrics.NewMetrics()
+	metrics, err := observe.NewMetrics()
 	if err != nil {
 		return nil, err
 	}

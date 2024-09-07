@@ -121,9 +121,9 @@ policies:
 	}
 
 	for _, c := range cases {
-		allowed, err := checker.Check(c.in)
+		result, err := checker.Check(c.in)
 		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, allowed, "url: %s, method: %s", c.in.Uri, c.in.Method)
+		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s", c.in.Uri, c.in.Method)
 	}
 }
 
@@ -189,9 +189,9 @@ policies:
 	}
 
 	for _, c := range cases {
-		allowed, err := checker.Check(c.in)
+		result, err := checker.Check(c.in)
 		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, allowed, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
 	}
 }
 
@@ -254,9 +254,9 @@ policies:
 	}
 
 	for _, c := range cases {
-		allowed, err := checker.Check(c.in)
+		result, err := checker.Check(c.in)
 		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, allowed, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
 	}
 }
 
@@ -295,9 +295,9 @@ default:
 	}
 
 	for _, c := range cases {
-		allowed, err := checker.Check(c.in)
+		result, err := checker.Check(c.in)
 		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, allowed)
+		assert.Equal(t, c.allowed, result.Allow)
 	}
 }
 
@@ -335,9 +335,9 @@ policies:
 	}
 
 	for _, c := range cases {
-		allowed, err := checker.Check(c.in)
+		result, err := checker.Check(c.in)
 		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, allowed, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
 	}
 }
 
@@ -390,9 +390,9 @@ policies:
 	}
 
 	for _, c := range cases {
-		allowed, err := checker.Check(c.in)
+		result, err := checker.Check(c.in)
 		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, allowed, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
 	}
 }
 
@@ -465,9 +465,9 @@ policies:
 	}
 
 	for _, c := range cases {
-		allowed, err := checker.Check(c.in)
+		result, err := checker.Check(c.in)
 		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, allowed, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
 	}
 }
 
@@ -506,9 +506,9 @@ policies:
 	}
 
 	for _, c := range cases {
-		allowed, err := checker.Check(c.in)
+		result, err := checker.Check(c.in)
 		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, allowed, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
 	}
 }
 
@@ -547,9 +547,9 @@ policies:
 	}
 
 	for _, c := range cases {
-		allowed, err := checker.Check(c.in)
+		result, err := checker.Check(c.in)
 		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, allowed, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
 	}
 }
 
@@ -639,8 +639,8 @@ policies:
 	}
 
 	for _, c := range cases {
-		allowed, err := checker.Check(c.in)
+		result, err := checker.Check(c.in)
 		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, allowed, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
 	}
 }

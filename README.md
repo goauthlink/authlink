@@ -139,9 +139,10 @@ Usage:
   main run [flags] [policy-file.yaml] [data-file.json (optional)]
 
 Flags:
-      --addr string                set listening address of the http server (e.g., [ip]:<port>) (default [:8080]) (default ":8080")
-      --log-level string           set log level (default info) (default "info")
-      --monitoring-addr string     set listening address for the /health and /metrics (e.g., [ip]:<port>) (default [:9191]) (default ":9191")
+      --addr string                set listening address of the http server (e.g., [ip]:<port>) (default ":8080")
+      --log-check-results          log info about check requests results (default false)
+      --log-level string           set log level (default "info")
+      --monitoring-addr string     set listening address for the /health and /metrics (e.g., [ip]:<port>) (default ":9191")
       --update-files-seconds int   set policy/data file updating period (seconds) (default 0 - do not update)
 ```
 
@@ -198,6 +199,25 @@ Also agent exposes runtime metrics provided automatically by the [Prometheus Go 
 - go_memstats_gc_sys_bytes
 - go_memstats_other_sys_bytes
 - go_memstats_next_gc_bytes
+
+## Logging
+
+There are situations when your policies behave in a way that is not what you expect. Logging the results of policy checking may help you understand faster which specific policy from the set of policies was matched by the request condition (this is not always obvious, especially if using regular expression templates). You can also see which client name the agent has determined.
+
+The APC agent has a logging feature for checking result. By default it is disabled. To enable it, you can use a parameter `--log-check-results`. Then all checking requests will be logged similar to this:
+
+```
+time= level=INFO msg="check result: false, uri: test, method: POST, headers: map[accept:*/* user-agent:curl/8.6.0 x-method:POST x-path:test], policy endpoint: /order/[0-9]+/info, parsed client: "
+time= level=INFO msg="check result: false, uri: user, method: GET, headers: map[accept:*/* user-agent:curl/8.6.0 x-method:GET x-path:user x-source:client2], policy endpoint: default, parsed client: client2"
+```
+
+Arguments desctiption:
+
+- `uri` - original request URI
+- `method` - original request method
+- `headers` - original request headers (used for client names)
+- `policy endpoint` - mathched endpoint from policy (ex. `/order/[0-9]+/info`)
+- `parsed client` - client name with prefix
 
 ## How to contribute
 

@@ -99,7 +99,7 @@ policies:
 		if err != nil {
 			b.Fatal(err)
 		}
-		if result == false {
+		if result.Allow == false {
 			b.Fatal("unexpected result, want true")
 		}
 	}
