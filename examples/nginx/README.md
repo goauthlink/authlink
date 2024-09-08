@@ -1,6 +1,6 @@
 # Overview 
 
-AuthPolicyController adds the ability for Nginx to authorize HTTP requests based on access policies before proxying to the target service. There is no need to change the code of your service. Authorization works at the infrastructure level and does not depend on the programming languages used.
+AuthRequestAgent adds the ability for Nginx to authorize HTTP requests based on access policies before proxying to the target service. There is no need to change the code of your service. Authorization works at the infrastructure level and does not depend on the programming languages used.
 
 # How it works
 
@@ -110,7 +110,7 @@ location / {
 }
 
 location = /auth {
-    proxy_pass http://agent:8090/check; # apc agent
+    proxy_pass http://agent:8090/check;
     proxy_method POST;
     proxy_pass_request_body off;
     proxy_set_header X-Path $request_uri; # original request URI

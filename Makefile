@@ -1,9 +1,9 @@
-# Copyright 2024 The AuthPolicyController Authors.  All rights reserved.
+# Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
 # Use of this source code is governed by an Apache2
 # license that can be found in the LICENSE file.
 
 VERSION ?= $(go run ./cmd/agent/main.go version) 
-AGENT_IMAGE_NAME ?= ghcr.io/auth-policy-controller/agent
+AGENT_IMAGE_NAME ?= ghcr.io/auth-request-agent/agent
 
 RELEASE_DIR = ./dist
 GOARCH ?= $(shell go env GOARCH)
@@ -21,7 +21,7 @@ clean-bin:
 
 agent-build-bin:
 	mkdir -p $(RELEASE_DIR)
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(AGENT_BIN) agent/cmd/main.go 
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(AGENT_BIN) cmd/agent/main.go 
 	chmod +x $(AGENT_BIN)
 	mv $(AGENT_BIN) $(RELEASE_DIR)/
 	cd $(RELEASE_DIR)/  && tar -zcvf $(AGENT_BIN).tar.gz $(AGENT_BIN) && shasum -a 256 $(AGENT_BIN).tar.gz > $(AGENT_BIN).tar.gz.sha256

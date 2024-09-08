@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthPolicyController Authors.  All rights reserved.
+// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auth-policy-controller/apc/test/util"
+	"github.com/auth-request-agent/agent/test/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -1,16 +1,16 @@
-# Copyright 2024 The AuthPolicyController Authors.  All rights reserved.
+# Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
 # Use of this source code is governed by an Apache2
 # license that can be found in the LICENSE file.
 
 FROM alpine:3.20 
 
-WORKDIR /apc
+WORKDIR /auth-request-agent
 
 ARG TARGETOS
 ARG TARGETARCH
 
-COPY dist/agent_${TARGETOS}_${TARGETARCH} /apc/agent
+COPY dist/agent_${TARGETOS}_${TARGETARCH} /auth-request-agent/agent
 
-ENV PATH=${PATH}:/apc
+ENV PATH=${PATH}:/auth-request-agent
 
 ENTRYPOINT ["agent"]

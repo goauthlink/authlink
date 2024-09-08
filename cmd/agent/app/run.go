@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthPolicyController Authors.  All rights reserved.
+// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -9,9 +9,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/auth-policy-controller/apc/agent"
-	"github.com/auth-policy-controller/apc/pkg/cmd"
-	"github.com/auth-policy-controller/apc/pkg/logging"
+	"github.com/auth-request-agent/agent/agent"
+	"github.com/auth-request-agent/agent/pkg/cmd"
+	"github.com/auth-request-agent/agent/pkg/logging"
 	"github.com/spf13/cobra"
 )
 

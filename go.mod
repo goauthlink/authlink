@@ -1,4 +1,4 @@
-module github.com/auth-policy-controller/apc
+module github.com/auth-request-agent/agent
 
 go 1.22.5
 

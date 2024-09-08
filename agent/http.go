@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthPolicyController Authors.  All rights reserved.
+// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auth-policy-controller/apc/agent/observe"
-	"github.com/auth-policy-controller/apc/pkg/policy"
+	"github.com/auth-request-agent/agent/agent/observe"
+	"github.com/auth-request-agent/agent/pkg/policy"
 )
 
 type httpServer struct {
