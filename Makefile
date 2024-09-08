@@ -21,7 +21,7 @@ clean-bin:
 
 agent-build-bin:
 	mkdir -p $(RELEASE_DIR)
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(AGENT_BIN) agent/cmd/main.go 
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(AGENT_BIN) cmd/agent/main.go 
 	chmod +x $(AGENT_BIN)
 	mv $(AGENT_BIN) $(RELEASE_DIR)/
 	cd $(RELEASE_DIR)/  && tar -zcvf $(AGENT_BIN).tar.gz $(AGENT_BIN) && shasum -a 256 $(AGENT_BIN).tar.gz > $(AGENT_BIN).tar.gz.sha256
