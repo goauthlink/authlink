@@ -1,16 +1,26 @@
-# Auth Policy Controller
+# Auth Request Agent (arqagent) 
 
-AuthPolicyController is an open-source simple to configure, high-performance authorization service focused on working with HTTP requests. Integrates into the infrastructure layer of your project and does not require changes to your applications. Configured in YAML format (without new declarative languages) so that your team can easily get started with it.
+Auth Request Agent is an open-source simple to configure, high-performance authorization service focused on working with HTTP requests. Integrates into the infrastructure layer of your project and does not require changes to your applications. Configured in YAML format (without new declarative languages) so that your team can easily get started with it.
 
 ## Getting started 
 
 See example of [nginx integration](./examples/nginx).
 
-Or run as a container:
+### Run as a container:
 
-```docker run -v ./policy.yaml:/policy.yaml -v ./data.json:/data.json -p 8080:8080 ghcr.io/auth-policy-controller/agent:latest run /policy.yaml /data.json```
+```docker run -v ./policy.yaml:/policy.yaml -v ./data.json:/data.json -p 8080:8080 ghcr.io/auth-request-agent/agent:latest run /policy.yaml /data.json```
 
 You can see the detailed flags of the `run` command [bellow](#run-options).
+
+### Static binaries 
+
+Download from [releases on GitHub (expand "Assets")](https://github.com/auth-request-agent/agent/releases) archive for you OS and ARCH (supported linux and macos)
+
+```sh
+curl -L https://github.com/auth-request-agent/agent/releases/download/v{version}/agent_{os}_{arch}.tar.gz > agent.tar.gz 
+tar -xvf agent.tar.gz
+mv agent_{os}_{arch} /usr/local/bin/agent
+```
 
 ## Configuring policies
 
@@ -136,12 +146,13 @@ Agent run command signature
 
 ```bash
 Usage:
-  agent run [flags] [policy-file.yaml] [data-file.json (optional)]
+  main run [flags] [policy-file.yaml] [data-file.json (optional)]
 
 Flags:
-      --addr string                set listening address of the http server (e.g., [ip]:<port>) (default [:8080]) (default ":8080")
-  -h, --help                       help for run
-      --log-level string           set log level (default info) (default "info")
+      --addr string                set listening address of the http server (e.g., [ip]:<port>) (default ":8080")
+      --log-check-results          log info about check requests results (default false)
+      --log-level string           set log level (default "info")
+      --monitoring-addr string     set listening address for the /health and /metrics (e.g., [ip]:<port>) (default ":9191")
       --update-files-seconds int   set policy/data file updating period (seconds) (default 0 - do not update)
 ```
 
@@ -150,7 +161,75 @@ Flags:
 
 The order of files doesn't matter. Policies are always expected in `yaml`, and dynamic data in `json`. Using the `--update-files-seconds` flag, you can specify the number of seconds after which the agent will reload the files again, thereby updating them.
 
+## Metrics
+
+Agent exposes HTTP endpoint that responds metrics in the [Prometheus exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format). By default metrics endpoint is available at `"http://localhost:9191/stats/prometheus"`, but you can configure host and port with `--monitoring-addr` [option](#run-options).
+
+To configure Prometheus to scrape from agent you'll need a YAML configuration file similar to this:
+
+```yaml
+global:
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: auth-request-agent 
+    metrics_path: "/stats/prometheus"
+    static_configs:
+      - targets: ['localhost:9191']
+```
+
+Agent exposes these metrics
+
+| metric name | metric type | description |
+|-------------|-------------|-------------|
+| check_rq_total | Counter | A counter of check requests |
+| check_rq_failed | Counter | A counter of failed check requests (500 response code) |
+| check_rq_duration | Histogram | A histogram of duration for check requests |
+
+Also agent exposes runtime metrics provided automatically by the [Prometheus Go Client](https://github.com/prometheus/client_golang). They are prefixed with `go_*` and `process_*` (only for linux).
+
+- go_memstats_alloc_bytes
+- go_memstats_alloc_bytes_total
+- go_memstats_sys_bytes
+- go_memstats_mallocs_total
+- go_memstats_frees_total
+- go_memstats_heap_alloc_bytes
+- go_memstats_heap_sys_bytes
+- go_memstats_heap_idle_bytes
+- go_memstats_heap_inuse_bytes
+- go_memstats_heap_released_bytes
+- go_memstats_heap_objects
+- go_memstats_stack_inuse_bytes
+- go_memstats_stack_sys_bytes
+- go_memstats_mspan_inuse_bytes
+- go_memstats_mspan_sys_bytes
+- go_memstats_mcache_inuse_bytes
+- go_memstats_mcache_sys_bytes
+- go_memstats_buck_hash_sys_bytes
+- go_memstats_gc_sys_bytes
+- go_memstats_other_sys_bytes
+- go_memstats_next_gc_bytes
+
+## Logging
+
+There are situations when your policies behave in a way that is not what you expect. Logging the results of policy checking may help you understand faster which specific policy from the set of policies was matched by the request condition (this is not always obvious, especially if using regular expression templates). You can also see which client name the agent has determined.
+
+Agent has a logging feature for checking result. By default it is disabled. To enable it, you can use a parameter `--log-check-results`. Then all checking requests will be logged similar to this:
+
+```
+time= level=INFO msg="check result: false, uri: test, method: POST, headers: map[accept:*/* user-agent:curl/8.6.0 x-method:POST x-path:test], policy endpoint: /order/[0-9]+/info, parsed client: "
+time= level=INFO msg="check result: false, uri: user, method: GET, headers: map[accept:*/* user-agent:curl/8.6.0 x-method:GET x-path:user x-source:client2], policy endpoint: default, parsed client: client2"
+```
+
+Arguments desctiption:
+
+- `uri` - original request URI
+- `method` - original request method
+- `headers` - original request headers (used for client names)
+- `policy endpoint` - mathched endpoint from policy (ex. `/order/[0-9]+/info`)
+- `parsed client` - client name with prefix
+
 ## How to contribute
 
 - make a pull request to the latest release branch (release-*)
-- [create issue](https://github.com/auth-policy-controller/apc/issues/new)
+- [create issue](https://github.com/auth-request-agent/agent/issues/new)

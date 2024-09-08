@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthPolicyController Authors.  All rights reserved.
+// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/auth-policy-controller/apc/test/util"
+	"github.com/auth-request-agent/agent/test/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,11 +48,15 @@ func Test_AgentOtherParams(t *testing.T) {
 
 	params := createTestCmdParams()
 	params.updateFilesSeconds = 60
+	params.monitoringAddr = ":8181"
+	params.logCheckResults = true
 
 	config, err := prepareConfig([]string{rootDir + "/policy.yaml"}, params)
 	require.NoError(t, err)
 
 	assert.Equal(t, params.updateFilesSeconds, config.UpdateFilesSeconds)
+	assert.Equal(t, params.monitoringAddr, config.MonitoringAddr)
+	assert.Equal(t, params.logCheckResults, true)
 }
 
 func Test_AgentLogLevel(t *testing.T) {

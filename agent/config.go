@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthPolicyController Authors.  All rights reserved.
+// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -11,7 +11,9 @@ import (
 
 type Config struct {
 	Addr               string
+	MonitoringAddr     string
 	LogLevel           slog.Level
+	LogCheckResults    bool
 	PolicyFilePath     string
 	DataFilePath       string
 	UpdateFilesSeconds int
@@ -20,7 +22,9 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		Addr:               ":8080",
+		MonitoringAddr:     ":9191",
 		LogLevel:           slog.LevelInfo,
+		LogCheckResults:    false,
 		UpdateFilesSeconds: 0,
 		PolicyFilePath:     "policy.yaml",
 		DataFilePath:       "",

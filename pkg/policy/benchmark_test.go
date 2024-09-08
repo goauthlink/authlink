@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthPolicyController Authors.  All rights reserved.
+// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -99,7 +99,7 @@ policies:
 		if err != nil {
 			b.Fatal(err)
 		}
-		if result == false {
+		if result.Allow == false {
 			b.Fatal("unexpected result, want true")
 		}
 	}

@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthPolicyController Authors.  All rights reserved.
+// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -9,15 +9,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/auth-policy-controller/apc/agent"
-	"github.com/auth-policy-controller/apc/pkg/cmd"
-	"github.com/auth-policy-controller/apc/pkg/logging"
+	"github.com/auth-request-agent/agent/agent"
+	"github.com/auth-request-agent/agent/pkg/cmd"
+	"github.com/auth-request-agent/agent/pkg/logging"
 	"github.com/spf13/cobra"
 )
 
 type runCmdParams struct {
 	logLevel           string
+	logCheckResults    bool
 	addr               string
+	monitoringAddr     string
 	updateFilesSeconds int
 }
 
@@ -57,8 +59,11 @@ func newRunCmd() *cobra.Command {
 		},
 	}
 
-	runCmd.Flags().StringVar(&cmdParams.logLevel, "log-level", "info", "set log level (default info)")
-	runCmd.Flags().StringVar(&cmdParams.addr, "addr", ":8080", "set listening address of the http server (e.g., [ip]:<port>) (default [:8080])")
+	runCmd.Flags().StringVar(&cmdParams.logLevel, "log-level", "info", "set log level")
+
+	runCmd.Flags().StringVar(&cmdParams.addr, "addr", ":8080", "set listening address of the http server (e.g., [ip]:<port>)")
+	runCmd.Flags().StringVar(&cmdParams.monitoringAddr, "monitoring-addr", ":9191", "set listening address for the /health and /metrics (e.g., [ip]:<port>)")
+	runCmd.Flags().BoolVar(&cmdParams.logCheckResults, "log-check-results", false, "log info about check requests results (default false)")
 	runCmd.Flags().IntVar(&cmdParams.updateFilesSeconds, "update-files-seconds", 0, "set policy/data file updating period (seconds) (default 0 - do not update)")
 	runCmd.SetUsageTemplate(`Usage:
   {{.UseLine}} [policy-file.yaml] [data-file.json (optional)]
@@ -99,6 +104,8 @@ func prepareConfig(args []string, params runCmdParams) (*agent.Config, error) {
 
 	// other params
 	config.Addr = params.addr
+	config.MonitoringAddr = params.monitoringAddr
+	config.LogCheckResults = params.logCheckResults
 	config.UpdateFilesSeconds = params.updateFilesSeconds
 
 	if err := config.Validate(); err != nil {

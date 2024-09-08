@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthPolicyController Authors.  All rights reserved.
+// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -6,6 +6,7 @@ package policy
 
 import (
 	"fmt"
+	"log/slog"
 	"reflect"
 	"slices"
 	"sync"
@@ -27,12 +28,18 @@ type Checker struct {
 	rawPolicy []byte
 	data      interface{}
 	dataMux   sync.RWMutex
+	logger    *slog.Logger
 }
 
 func NewChecker() *Checker {
+	// todo: default policy
 	return &Checker{
 		dataMux: sync.RWMutex{},
 	}
+}
+
+func (c *Checker) SetResultLogger(logger *slog.Logger) {
+	c.logger = logger
 }
 
 func (c *Checker) SetPolicy(policy []byte) error {
@@ -63,9 +70,41 @@ func (c *Checker) Policy() []byte {
 	return c.rawPolicy
 }
 
-func (c *Checker) Check(in CheckInput) (bool, error) {
-	// todo: decision logger
+type CheckResult struct {
+	Allow        bool
+	Endpoint     string
+	NormalizedCn string
+}
 
+func (c *Checker) createCheckResult(allow bool, in *CheckInput, endpoint string, cn *preparedCn) *CheckResult {
+	var normalizedCn string
+	if cn != nil {
+		normalizedCn = cn.Prefix + cn.Name
+	}
+
+	checkResult := CheckResult{
+		Allow:        false,
+		NormalizedCn: normalizedCn,
+	}
+	checkResult.Allow = allow
+
+	if c.logger == nil {
+		return &checkResult
+	}
+
+	c.logger.Info(fmt.Sprintf("check result: %t, uri: %s, method: %s, headers: %s, policy endpoint: %s, parsed client: %s",
+		allow,
+		in.Uri,
+		in.Method,
+		in.Headers,
+		endpoint,
+		normalizedCn,
+	))
+
+	return &checkResult
+}
+
+func (c *Checker) Check(in CheckInput) (*CheckResult, error) {
 	c.dataMux.RLock()
 	defer c.dataMux.RUnlock()
 
@@ -79,10 +118,10 @@ func (c *Checker) Check(in CheckInput) (bool, error) {
 				if policy.Method[0] == "*" || slices.Contains(policy.Method, in.Method) {
 					isAllowed, err := c.isAllowed(policy.Allow, cn)
 					if err != nil {
-						return false, err
+						return c.createCheckResult(false, &in, policy.RegexUri.String(), cn), err
 					}
 
-					return isAllowed, nil
+					return c.createCheckResult(isAllowed, &in, policy.RegexUri.String(), cn), nil
 				}
 			}
 		}
@@ -90,20 +129,20 @@ func (c *Checker) Check(in CheckInput) (bool, error) {
 		if policy.Uri == in.Uri && (policy.Method[0] == "*" || slices.Contains(policy.Method, in.Method)) {
 			isAllowed, err := c.isAllowed(policy.Allow, cn)
 			if err != nil {
-				return false, err
+				return c.createCheckResult(false, &in, policy.Uri, cn), err
 			}
 
-			return isAllowed, nil
+			return c.createCheckResult(isAllowed, &in, policy.Uri, cn), nil
 		}
 	}
 
 	// apply default
 	isAllowed, err := c.isAllowed(c.prepCfg.Default, cn)
 	if err != nil {
-		return false, err
+		return c.createCheckResult(false, &in, "default", cn), err
 	}
 
-	return isAllowed, nil
+	return c.createCheckResult(isAllowed, &in, "default", cn), nil
 }
 
 func (c *Checker) isAllowed(allow preparedAllow, cn *preparedCn) (bool, error) {

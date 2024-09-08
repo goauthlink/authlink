@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthPolicyController Authors.  All rights reserved.
+// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -6,15 +6,22 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/auth-policy-controller/apc/pkg/policy"
+	"github.com/auth-request-agent/agent/pkg/policy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type testMetrics struct{}
+
+func (tm *testMetrics) CheckRqTotalInc(ctx context.Context)                  {}
+func (tm *testMetrics) CheckRqFailedInc(ctx context.Context)                 {}
+func (tm *testMetrics) CheckRqDurationObserve(ctx context.Context, ms int64) {}
 
 func initTestHttpServer(t *testing.T, pol *string) (*httpServer, *bytes.Buffer) {
 	var checker *policy.Checker
@@ -28,9 +35,7 @@ func initTestHttpServer(t *testing.T, pol *string) (*httpServer, *bytes.Buffer) 
 		Level: slog.LevelDebug,
 	}))
 
-	httpServer := initHttpServer(Config{
-		Addr: ":8080",
-	}, logger, checker)
+	httpServer := initHttpServer(DefaultConfig(), logger, checker, &testMetrics{})
 
 	return httpServer, buf
 }
@@ -77,16 +82,4 @@ policies:
 	httpServer.srv.Handler.ServeHTTP(w, request)
 
 	assert.Equal(t, http.StatusForbidden, w.Code, logs)
-}
-
-func Test_GetHealtzHandler(t *testing.T) {
-	w := httptest.NewRecorder()
-
-	httpServer, _ := initTestHttpServer(t, nil)
-
-	request := httptest.NewRequest(http.MethodGet, "http://localhost:8080/healtz", nil)
-
-	httpServer.srv.Handler.ServeHTTP(w, request)
-
-	assert.Equal(t, http.StatusOK, w.Code)
 }
