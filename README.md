@@ -1,6 +1,6 @@
-# Auth Policy Controller
+# Auth Request Agent (arqagent) 
 
-Auth Policy Controller (APC) is an open-source simple to configure, high-performance authorization service focused on working with HTTP requests. Integrates into the infrastructure layer of your project and does not require changes to your applications. Configured in YAML format (without new declarative languages) so that your team can easily get started with it.
+Auth Request Agent is an open-source simple to configure, high-performance authorization service focused on working with HTTP requests. Integrates into the infrastructure layer of your project and does not require changes to your applications. Configured in YAML format (without new declarative languages) so that your team can easily get started with it.
 
 ## Getting started 
 
@@ -8,18 +8,18 @@ See example of [nginx integration](./examples/nginx).
 
 ### Run as a container:
 
-```docker run -v ./policy.yaml:/policy.yaml -v ./data.json:/data.json -p 8080:8080 ghcr.io/auth-policy-controller/agent:latest run /policy.yaml /data.json```
+```docker run -v ./policy.yaml:/policy.yaml -v ./data.json:/data.json -p 8080:8080 ghcr.io/auth-request-agent/agent:latest run /policy.yaml /data.json```
 
 You can see the detailed flags of the `run` command [bellow](#run-options).
 
 ### Static binaries 
 
-Download from [releases on GitHub (expand "Assets")](https://github.com/auth-policy-controller/apc/releases) archive for you OS and ARCH (supported linux and macos)
+Download from [releases on GitHub (expand "Assets")](https://github.com/auth-request-agent/agent/releases) archive for you OS and ARCH (supported linux and macos)
 
 ```sh
-curl -L https://github.com/auth-policy-controller/apc/releases/download/v{version}/agent_{os}_{arch}.tar.gz > agent.tar.gz 
+curl -L https://github.com/auth-request-agent/agent/releases/download/v{version}/agent_{os}_{arch}.tar.gz > agent.tar.gz 
 tar -xvf agent.tar.gz
-mv agent_{os}_{arch} /usr/local/bin/apcagent
+mv agent_{os}_{arch} /usr/local/bin/agent
 ```
 
 ## Configuring policies
@@ -163,22 +163,22 @@ The order of files doesn't matter. Policies are always expected in `yaml`, and d
 
 ## Metrics
 
-APC agent exposes HTTP endpoint that responds metrics in the [Prometheus exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format). By default metrics endpoint is available at `"http://localhost:9191/stats/prometheus"`, but you can configure host and port with `--monitoring-addr` [option](#run-options).
+Agent exposes HTTP endpoint that responds metrics in the [Prometheus exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format). By default metrics endpoint is available at `"http://localhost:9191/stats/prometheus"`, but you can configure host and port with `--monitoring-addr` [option](#run-options).
 
-To configure Prometheus to scrape from APC you'll need a YAML configuration file similar to this:
+To configure Prometheus to scrape from agent you'll need a YAML configuration file similar to this:
 
 ```yaml
 global:
   scrape_interval: 10s
 
 scrape_configs:
-  - job_name: apc 
+  - job_name: auth-request-agent 
     metrics_path: "/stats/prometheus"
     static_configs:
       - targets: ['localhost:9191']
 ```
 
-APC agent exposes these metrics
+Agent exposes these metrics
 
 | metric name | metric type | description |
 |-------------|-------------|-------------|
@@ -214,7 +214,7 @@ Also agent exposes runtime metrics provided automatically by the [Prometheus Go 
 
 There are situations when your policies behave in a way that is not what you expect. Logging the results of policy checking may help you understand faster which specific policy from the set of policies was matched by the request condition (this is not always obvious, especially if using regular expression templates). You can also see which client name the agent has determined.
 
-The APC agent has a logging feature for checking result. By default it is disabled. To enable it, you can use a parameter `--log-check-results`. Then all checking requests will be logged similar to this:
+Agent has a logging feature for checking result. By default it is disabled. To enable it, you can use a parameter `--log-check-results`. Then all checking requests will be logged similar to this:
 
 ```
 time= level=INFO msg="check result: false, uri: test, method: POST, headers: map[accept:*/* user-agent:curl/8.6.0 x-method:POST x-path:test], policy endpoint: /order/[0-9]+/info, parsed client: "
@@ -232,4 +232,4 @@ Arguments desctiption:
 ## How to contribute
 
 - make a pull request to the latest release branch (release-*)
-- [create issue](https://github.com/auth-policy-controller/apc/issues/new)
+- [create issue](https://github.com/auth-request-agent/agent/issues/new)

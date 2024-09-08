@@ -97,7 +97,7 @@ jobs:
         with:
           draft: true
           token: ${{ secrets.GH_TOKEN }}
-          repository: auth-policy-controller/apc
+          repository: auth-request-agent/agent
           generate_release_notes: true
           files: |
             dist/*.tar.gz 

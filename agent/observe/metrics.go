@@ -35,7 +35,7 @@ func NewMetrics() (Metrics, error) {
 
 	provider := metric.NewMeterProvider(metric.WithReader(exporter))
 
-	meter := provider.Meter("apc", api.WithInstrumentationAttributes())
+	meter := provider.Meter("auth-request-agent", api.WithInstrumentationAttributes())
 
 	// metrics
 	checkRqTotalCounter, err := meter.Int64Counter(checkRqTotalName,

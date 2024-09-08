@@ -1,9 +1,9 @@
-# Copyright 2024 The AuthPolicyController Authors.  All rights reserved.
+# Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
 # Use of this source code is governed by an Apache2
 # license that can be found in the LICENSE file.
 
 VERSION ?= $(go run ./cmd/agent/main.go version) 
-AGENT_IMAGE_NAME ?= ghcr.io/auth-policy-controller/agent
+AGENT_IMAGE_NAME ?= ghcr.io/auth-request-agent/agent
 
 RELEASE_DIR = ./dist
 GOARCH ?= $(shell go env GOARCH)
