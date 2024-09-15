@@ -168,6 +168,23 @@ policies:
     allow: ["$managers"]
 ```
 
+### Default policy
+
+Sometimes it is time-consuming or impractical to describe rules for all handlers in a service. To avoid this, you can set a default policy. It will be applied if the request does not match any of the described policies:
+
+```yaml
+cn:
+  - header: "x-source"
+default:
+  - 'client2'
+  - 'client3' 
+policies:
+  - uri: ["/user"]
+    allow: ["client1"]
+```
+
+`clients2` and `client3` will have access to all handlers in the service except `/user`. Note that `allow` in a policy completely overrides `default`, they do not merge.
+
 ## Run options 
 
 Agent run command signature
