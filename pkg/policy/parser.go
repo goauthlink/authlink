@@ -5,6 +5,7 @@
 package policy
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -95,7 +96,7 @@ func PrepareConfig(config []byte) (*preparedConfig, error) {
 	for _, cn := range c.Cn {
 		if cn.JWT != nil {
 			if cn.JWT.Cookie != nil && cn.JWT.Header != nil {
-				return nil, fmt.Errorf(validationErrHeaderOrCookieAsJWTSource)
+				return nil, errors.New(validationErrHeaderOrCookieAsJWTSource)
 			}
 			if cn.JWT.KeyFile != nil {
 				d, err := os.ReadFile(*cn.JWT.KeyFile)
@@ -107,7 +108,7 @@ func PrepareConfig(config []byte) (*preparedConfig, error) {
 		}
 
 		if cn.JWT == nil && cn.Header == nil {
-			return nil, fmt.Errorf(validationErrAtLeastOneCNSourceMustExist)
+			return nil, errors.New(validationErrAtLeastOneCNSourceMustExist)
 		}
 	}
 
@@ -115,7 +116,7 @@ func PrepareConfig(config []byte) (*preparedConfig, error) {
 	uriUnique := map[string]struct{}{}
 	for pi, policy := range c.Policies {
 		if len(policy.Uri) == 0 {
-			return nil, fmt.Errorf(validationErrAtLeastOneUriMustBeInRule)
+			return nil, errors.New(validationErrAtLeastOneUriMustBeInRule)
 		}
 
 		if len(policy.Methods) == 0 {
@@ -135,7 +136,7 @@ func PrepareConfig(config []byte) (*preparedConfig, error) {
 					http.MethodOptions,
 				}, ml) {
 					if m == "*" {
-						return nil, fmt.Errorf(validationErrWildcardWithMethods)
+						return nil, errors.New(validationErrWildcardWithMethods)
 					}
 					return nil, fmt.Errorf(validationErrUndefinedHttpMethod, m)
 				}
@@ -145,7 +146,7 @@ func PrepareConfig(config []byte) (*preparedConfig, error) {
 
 		for _, uri := range policy.Uri {
 			if len(uri) == 0 {
-				return nil, fmt.Errorf(validationErrEmptyUri)
+				return nil, errors.New(validationErrEmptyUri)
 			}
 
 			for _, m := range c.Policies[pi].Methods {
@@ -237,7 +238,7 @@ func prepareAllow(allow []string, vars Variables) (*preparedAllow, error) {
 
 		if a[0] == '$' {
 			if vars == nil {
-				return nil, fmt.Errorf(validationErrVarIsNotAllowedInThisSection)
+				return nil, errors.New(validationErrVarIsNotAllowedInThisSection)
 			}
 			v, ok := vars[strings.TrimPrefix(a, "$")]
 			if !ok {

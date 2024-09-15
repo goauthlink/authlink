@@ -17,7 +17,6 @@ import (
 type testCase struct {
 	in              CheckInput
 	allowed         bool
-	fileMap         map[string][]byte
 	wantedResultErr error
 }
 
