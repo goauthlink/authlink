@@ -38,12 +38,11 @@ func InitNewAgent(config Config) (*Agent, error) {
 	agent.logger.Info("start initing")
 
 	agent.checker = policy.NewChecker()
-	if config.LogCheckResults {
-		checkLogger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		}))
-		agent.checker.SetResultLogger(checkLogger)
-	}
+	// if config.LogCheckResults {
+	// 	checkLogger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	// 		Level: slog.LevelInfo,
+	// 	}))
+	// }
 
 	if err := agent.updateFiles(); err != nil {
 		return nil, err

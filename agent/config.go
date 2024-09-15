@@ -5,7 +5,7 @@
 package agent
 
 import (
-	"fmt"
+	"errors"
 	"log/slog"
 )
 
@@ -37,7 +37,7 @@ const (
 
 func (c *Config) Validate() error {
 	if c.UpdateFilesSeconds < 0 {
-		return fmt.Errorf(errUpdatePolicyFileSeconds)
+		return errors.New(errUpdatePolicyFileSeconds)
 	}
 
 	return nil

@@ -5,6 +5,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -78,7 +79,7 @@ const usageArgs = "arguments must by: [policy-file.yaml] [data-file.json (option
 
 func prepareConfig(args []string, params runCmdParams) (*agent.Config, error) {
 	if len(args) == 0 || len(args) > 2 {
-		return nil, fmt.Errorf(usageArgs)
+		return nil, errors.New(usageArgs)
 	}
 
 	config := agent.DefaultConfig()
@@ -91,7 +92,7 @@ func prepareConfig(args []string, params runCmdParams) (*agent.Config, error) {
 		case ".json":
 			config.DataFilePath = file
 		default:
-			return nil, fmt.Errorf(usageArgs)
+			return nil, errors.New(usageArgs)
 		}
 	}
 

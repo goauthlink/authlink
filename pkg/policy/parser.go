@@ -5,8 +5,10 @@
 package policy
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
 	"slices"
 	"sort"
@@ -16,9 +18,19 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 )
 
+type CnJWT struct {
+	Payload     string  `yaml:"payload"`
+	Header      *string `yaml:"header"`
+	Cookie      *string `yaml:"cookie"`
+	KeyFile     *string `yaml:"keyFile"`
+	KeyFileData []byte
+	// KeyCache string  `yaml:"keyCache"` todo: need to implement
+}
+
 type Cn struct {
-	Prefix string `yaml:"prefix"`
-	Header string `yaml:"header"`
+	Prefix string  `yaml:"prefix"`
+	Header *string `yaml:"header"`
+	JWT    *CnJWT  `yaml:"jwt"`
 }
 
 type Policy struct {
@@ -67,6 +79,9 @@ const (
 	validationErrEmptyUri                     = "empty uri"
 	validationErrAtLeastOneUriMustBeInRule    = "at least one uri must be in the rule"
 	validationErrVarIsNotAllowedInThisSection = "variables is not allowed in this section"
+	validationErrHeaderOrCookieAsJWTSource    = "header or cookie may be used at the same time as a jwt source"
+	validationErrAtLeastOneCNSourceMustExist  = "at least one client name source must exist"
+	errLoadJWTKeyFile                         = "loading JWT key file: %s"
 )
 
 func PrepareConfig(config []byte) (*preparedConfig, error) {
@@ -77,10 +92,31 @@ func PrepareConfig(config []byte) (*preparedConfig, error) {
 		return nil, err
 	}
 
+	// prepare client names
+	for _, cn := range c.Cn {
+		if cn.JWT != nil {
+			if cn.JWT.Cookie != nil && cn.JWT.Header != nil {
+				return nil, errors.New(validationErrHeaderOrCookieAsJWTSource)
+			}
+			if cn.JWT.KeyFile != nil {
+				d, err := os.ReadFile(*cn.JWT.KeyFile)
+				if err != nil {
+					return nil, fmt.Errorf(errLoadJWTKeyFile, *cn.JWT.KeyFile)
+				}
+				cn.JWT.KeyFileData = d
+			}
+		}
+
+		if cn.JWT == nil && cn.Header == nil {
+			return nil, errors.New(validationErrAtLeastOneCNSourceMustExist)
+		}
+	}
+
+	// prepare policies
 	uriUnique := map[string]struct{}{}
 	for pi, policy := range c.Policies {
 		if len(policy.Uri) == 0 {
-			return nil, fmt.Errorf(validationErrAtLeastOneUriMustBeInRule)
+			return nil, errors.New(validationErrAtLeastOneUriMustBeInRule)
 		}
 
 		if len(policy.Methods) == 0 {
@@ -100,7 +136,7 @@ func PrepareConfig(config []byte) (*preparedConfig, error) {
 					http.MethodOptions,
 				}, ml) {
 					if m == "*" {
-						return nil, fmt.Errorf(validationErrWildcardWithMethods)
+						return nil, errors.New(validationErrWildcardWithMethods)
 					}
 					return nil, fmt.Errorf(validationErrUndefinedHttpMethod, m)
 				}
@@ -110,7 +146,7 @@ func PrepareConfig(config []byte) (*preparedConfig, error) {
 
 		for _, uri := range policy.Uri {
 			if len(uri) == 0 {
-				return nil, fmt.Errorf(validationErrEmptyUri)
+				return nil, errors.New(validationErrEmptyUri)
 			}
 
 			for _, m := range c.Policies[pi].Methods {
@@ -167,7 +203,7 @@ func PrepareConfig(config []byte) (*preparedConfig, error) {
 	}
 
 	sort.Slice(prepPolicies, func(i, j int) bool {
-		// todo: обработать одинаковые priority
+		// todo: same priorities
 		return prepPolicies[i].Priority >= prepPolicies[j].Priority
 	})
 
@@ -202,7 +238,7 @@ func prepareAllow(allow []string, vars Variables) (*preparedAllow, error) {
 
 		if a[0] == '$' {
 			if vars == nil {
-				return nil, fmt.Errorf(validationErrVarIsNotAllowedInThisSection)
+				return nil, errors.New(validationErrVarIsNotAllowedInThisSection)
 			}
 			v, ok := vars[strings.TrimPrefix(a, "$")]
 			if !ok {

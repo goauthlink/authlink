@@ -6,11 +6,27 @@ package policy
 
 import (
 	"fmt"
-	"log/slog"
+	"net/http"
 	"reflect"
 	"slices"
+	"strings"
 	"sync"
+
+	"github.com/golang-jwt/jwt/v5"
 )
+
+const (
+	errPayloadFieldDoesntExist    = "payload field `%s` doesn't exists in token `%s`"
+	errPayloadFieldIsntStringType = "payload field `%s` isn't string type in token `%s`"
+)
+
+type ErrInvalidClientName struct {
+	errMessage string
+}
+
+func (e ErrInvalidClientName) Error() string {
+	return e.errMessage
+}
 
 type CheckInput struct {
 	Uri     string
@@ -28,7 +44,6 @@ type Checker struct {
 	rawPolicy []byte
 	data      interface{}
 	dataMux   sync.RWMutex
-	logger    *slog.Logger
 }
 
 func NewChecker() *Checker {
@@ -36,10 +51,6 @@ func NewChecker() *Checker {
 	return &Checker{
 		dataMux: sync.RWMutex{},
 	}
-}
-
-func (c *Checker) SetResultLogger(logger *slog.Logger) {
-	c.logger = logger
 }
 
 func (c *Checker) SetPolicy(policy []byte) error {
@@ -71,37 +82,23 @@ func (c *Checker) Policy() []byte {
 }
 
 type CheckResult struct {
-	Allow        bool
-	Endpoint     string
-	NormalizedCn string
+	Allow      bool
+	ClientName string
+	Endpoint   string
+	Err        error
 }
 
-func (c *Checker) createCheckResult(allow bool, in *CheckInput, endpoint string, cn *preparedCn) *CheckResult {
-	var normalizedCn string
+func newCheckResult(allow bool, cn *preparedCn, endpoint string, err error) *CheckResult {
+	var clientName string
 	if cn != nil {
-		normalizedCn = cn.Prefix + cn.Name
+		clientName = cn.Prefix + cn.Name
 	}
-
-	checkResult := CheckResult{
-		Allow:        false,
-		NormalizedCn: normalizedCn,
+	return &CheckResult{
+		Allow:      allow,
+		ClientName: clientName,
+		Endpoint:   endpoint,
+		Err:        err,
 	}
-	checkResult.Allow = allow
-
-	if c.logger == nil {
-		return &checkResult
-	}
-
-	c.logger.Info(fmt.Sprintf("check result: %t, uri: %s, method: %s, headers: %s, policy endpoint: %s, parsed client: %s",
-		allow,
-		in.Uri,
-		in.Method,
-		in.Headers,
-		endpoint,
-		normalizedCn,
-	))
-
-	return &checkResult
 }
 
 func (c *Checker) Check(in CheckInput) (*CheckResult, error) {
@@ -109,7 +106,13 @@ func (c *Checker) Check(in CheckInput) (*CheckResult, error) {
 	defer c.dataMux.RUnlock()
 
 	// define client prefix and name
-	cn := c.defineCn(in)
+	cn, err := c.defineCn(in)
+	if err != nil {
+		if invalidCnErr, ok := err.(ErrInvalidClientName); ok {
+			return newCheckResult(false, nil, "", invalidCnErr), nil
+		}
+		return nil, fmt.Errorf("defining client name: %w", err)
+	}
 
 	// check routes
 	for _, policy := range c.prepCfg.Policies {
@@ -118,10 +121,10 @@ func (c *Checker) Check(in CheckInput) (*CheckResult, error) {
 				if policy.Method[0] == "*" || slices.Contains(policy.Method, in.Method) {
 					isAllowed, err := c.isAllowed(policy.Allow, cn)
 					if err != nil {
-						return c.createCheckResult(false, &in, policy.RegexUri.String(), cn), err
+						return newCheckResult(false, cn, policy.RegexUri.String(), nil), err
 					}
 
-					return c.createCheckResult(isAllowed, &in, policy.RegexUri.String(), cn), nil
+					return newCheckResult(isAllowed, cn, policy.RegexUri.String(), nil), nil
 				}
 			}
 		}
@@ -129,20 +132,20 @@ func (c *Checker) Check(in CheckInput) (*CheckResult, error) {
 		if policy.Uri == in.Uri && (policy.Method[0] == "*" || slices.Contains(policy.Method, in.Method)) {
 			isAllowed, err := c.isAllowed(policy.Allow, cn)
 			if err != nil {
-				return c.createCheckResult(false, &in, policy.Uri, cn), err
+				return newCheckResult(false, cn, policy.Uri, nil), err
 			}
 
-			return c.createCheckResult(isAllowed, &in, policy.Uri, cn), nil
+			return newCheckResult(isAllowed, cn, policy.Uri, nil), nil
 		}
 	}
 
 	// apply default
 	isAllowed, err := c.isAllowed(c.prepCfg.Default, cn)
 	if err != nil {
-		return c.createCheckResult(false, &in, "default", cn), err
+		return newCheckResult(false, cn, "default", nil), err
 	}
 
-	return c.createCheckResult(isAllowed, &in, "default", cn), nil
+	return newCheckResult(isAllowed, cn, "default", nil), nil
 }
 
 func (c *Checker) isAllowed(allow preparedAllow, cn *preparedCn) (bool, error) {
@@ -180,18 +183,84 @@ func (c *Checker) isAllowed(allow preparedAllow, cn *preparedCn) (bool, error) {
 	return false, nil
 }
 
-func (c *Checker) defineCn(in CheckInput) *preparedCn {
-	// todo: implement behavior for undefined cn
+func (c *Checker) defineCn(in CheckInput) (*preparedCn, error) {
 	for _, cn := range c.prepCfg.Cn {
-		if len(cn.Header) > 0 {
-			if val, ok := in.Headers[cn.Header]; ok {
+		if cn.Header != nil {
+			if val, ok := in.Headers[*cn.Header]; ok {
 				return &preparedCn{
 					Prefix: cn.Prefix,
 					Name:   val,
+				}, nil
+			}
+		}
+
+		if cn.JWT != nil {
+			var token string
+			if cn.JWT.Header != nil {
+				if t, ok := in.Headers[*cn.JWT.Header]; ok {
+					token = t
 				}
 			}
+
+			if cn.JWT.Cookie != nil {
+				cookies, err := http.ParseCookie(in.Headers["Cookie"])
+				if err != nil {
+					return nil, ErrInvalidClientName{
+						errMessage: fmt.Sprintf("parse cookie: %s", err),
+					}
+				}
+
+				for _, ck := range cookies {
+					if ck.Name == *cn.JWT.Cookie {
+						token = ck.Value
+						break
+					}
+				}
+			}
+
+			if len(token) == 0 {
+				continue
+			}
+
+			var keyFunc jwt.Keyfunc
+			if cn.JWT.KeyFile != nil {
+				keyFunc = func(t *jwt.Token) (interface{}, error) {
+					return cn.JWT.KeyFileData, nil
+				}
+			}
+
+			claims := jwt.MapClaims{}
+			_, err := jwt.ParseWithClaims(token, claims, keyFunc)
+			if err != nil {
+				if keyFunc == nil && strings.Contains(err.Error(), "no keyfunc was provided") {
+				} else {
+					return nil, ErrInvalidClientName{
+						errMessage: fmt.Sprintf("parse jwt token: %s", err.Error()),
+					}
+				}
+			}
+
+			cnClaim, ok := claims[cn.JWT.Payload]
+			if !ok {
+				return nil, ErrInvalidClientName{
+					errMessage: fmt.Sprintf(errPayloadFieldDoesntExist, cn.JWT.Payload, token),
+				}
+			}
+			cnValue, ok := cnClaim.(string)
+			if !ok {
+				return nil, ErrInvalidClientName{
+					errMessage: fmt.Sprintf(errPayloadFieldIsntStringType, cn.JWT.Payload, token),
+				}
+			}
+
+			return &preparedCn{
+				Prefix: cn.Prefix,
+				Name:   cnValue,
+			}, nil
 		}
 	}
 
-	return nil
+	return nil, ErrInvalidClientName{
+		errMessage: "undefined client name",
+	}
 }

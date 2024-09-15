@@ -72,6 +72,34 @@ policies:
 
 You can configure only one source without a prefix in one configuration file. In the near future, the ability to use JWT tokens to extract the client name will also be added.
 
+### JWT
+
+To obtain the client's name, you can use a JSON Web Token. The configuration may look something like this.
+
+```yaml
+cn:
+  - jwt:
+      header: "Authorization"
+      payload: "login"
+      keyFile: "/etc/jwt.key"
+    prefix: header_jwt
+  # or/and
+  - jwt:
+      cookie: "jwt"
+      payload: "login"
+      keyFile: "/etc/jwt.key"
+    prefix: cookie_jwt
+```
+
+Below is a more detailed description of the fields in the `jwt:` structure:
+
+- `header` Name of the HTTP header from which to extract the JWT token
+- `cookie` Name of the cookie from which to extract the JWT token 
+- `payload` Payload field to be used as the client name
+- `keyFile` Path to the file with JWT token verification key (if not specified, the token will not be validated)
+
+Note that you can use either header or cookie as the source.
+
 ### Dynamic data
 
 There are often situations where data changes dynamically, and we need to make authorization decisions based on actual data. For example, when a user's group changes, and we want to give access specifically for the group. You can load data in json format to agent, and search with [JSONPath](https://kubernetes.io/docs/reference/kubectl/jsonpath/), and update [within a time interval](#updating-policy-and-data).
@@ -139,6 +167,23 @@ policies:
   - uri: ["/order"]
     allow: ["$managers"]
 ```
+
+### Default policy
+
+Sometimes it is time-consuming or impractical to describe rules for all handlers in a service. To avoid this, you can set a default policy. It will be applied if the request does not match any of the described policies:
+
+```yaml
+cn:
+  - header: "x-source"
+default:
+  - 'client2'
+  - 'client3' 
+policies:
+  - uri: ["/user"]
+    allow: ["client1"]
+```
+
+`clients2` and `client3` will have access to all handlers in the service except `/user`. Note that `allow` in a policy completely overrides `default`, they do not merge.
 
 ## Run options 
 
