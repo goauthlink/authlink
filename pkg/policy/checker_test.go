@@ -5,16 +5,20 @@
 package policy
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
+	"github.com/auth-request-agent/agent/test/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type testCase struct {
-	in      CheckInput
-	allowed bool
+	in              CheckInput
+	allowed         bool
+	fileMap         map[string][]byte
+	wantedResultErr error
 }
 
 func Test_Data(t *testing.T) {
@@ -257,6 +261,143 @@ policies:
 		result, err := checker.Check(c.in)
 		assert.NoError(t, err)
 		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+	}
+}
+
+func Test_JWT_TokenValidation(t *testing.T) {
+	rootDir, cleanFs, err := util.MakeTmpFs("", t.Name(), map[string][]byte{
+		"/keyfile1.key": []byte("secret"),
+		"/keyfile2.key": []byte("invalid_secret"),
+	})
+	require.NoError(t, err)
+	defer cleanFs()
+
+	config := `
+cn:
+  - jwt: 
+      payload: "user"
+      header: "Auth1"
+      keyFile: "` + rootDir + `/keyfile1.key"
+    prefix: "jwt1:"
+  - jwt: 
+      payload: "user"
+      header: "Auth2"
+      keyFile: "` + rootDir + `/keyfile2.key"
+    prefix: "jwt2:"
+policies:
+  - uri: ["/ep1"]
+    allow: ["jwt1:jhon", "jwt2:jhon"]`
+
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
+
+	jwt := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiamhvbiJ9.RO0UD8zn-NRJ7XlIuQMfeyoxLclFPF7N5PRkIJMgsck" // payload with user:jhon
+
+	cases := []testCase{
+		{
+			in: CheckInput{
+				Uri:     "/ep1",
+				Headers: map[string]string{"Auth1": jwt},
+			},
+			allowed: true,
+		},
+		{
+			in: CheckInput{
+				Uri:     "/ep1",
+				Headers: map[string]string{"Auth2": jwt},
+			},
+			wantedResultErr: ErrInvalidClientName{
+				errMessage: "parse jwt token: token signature is invalid: signature is invalid",
+			},
+			allowed: false,
+		},
+	}
+
+	for _, c := range cases {
+		result, err := checker.Check(c.in)
+		require.NoError(t, err)
+		if c.wantedResultErr != nil {
+			require.EqualError(t, c.wantedResultErr, result.Err.Error(), result.ClientName)
+		} else {
+			require.NoError(t, result.Err)
+		}
+		assert.Equal(t, c.allowed, result.Allow, result.ClientName)
+	}
+}
+
+func Test_JWT_PayloadParser(t *testing.T) {
+	config := `
+cn:
+  - header: "x-source"
+  - jwt: 
+      payload: "user"
+      header: "Authorization"
+    prefix: "jwt:"
+  - jwt:
+      payload: "user"
+      cookie: "jwt"
+    prefix: "cookie:"
+policies:
+  - uri: ["/ep1"]
+    allow: ["jwt:jhon", "cookie:jhon"]
+  - uri: ["/ep2"]
+    allow: ["jessica"]`
+
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
+
+	jwt := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiamhvbiJ9.aFR_EpsSSaquZiO8ow8ygy_RvNyMBPfBMPnNA9jyEDM" // payload with user:jhon
+
+	cases := []testCase{
+		{
+			in: CheckInput{
+				Uri:     "/ep1",
+				Headers: map[string]string{"Cookie": "some-cookie=test; jwt=" + jwt},
+			},
+			allowed: true,
+		},
+		{
+			in: CheckInput{
+				Uri:     "/ep1",
+				Headers: map[string]string{"x-source": "client1"},
+			},
+			allowed: false,
+		},
+		{
+			in: CheckInput{
+				Uri:     "/ep2",
+				Headers: map[string]string{"Authorization": jwt},
+			},
+			allowed: false,
+		},
+		{
+			in: CheckInput{
+				Uri:     "/ep1",
+				Headers: map[string]string{"Authorization": jwt},
+			},
+			allowed: true,
+		},
+		{
+			in: CheckInput{
+				Uri:     "/ep1",
+				Headers: map[string]string{"Authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7Im5hbWUiOiJqaG9uIn19.Jk_NZmxy5LkxGjS_dhvDq-yXxvTs6xSNxErHoen9qhs"},
+			},
+			allowed: false,
+			wantedResultErr: ErrInvalidClientName{
+				errMessage: fmt.Sprintf(errPayloadFieldIsntStringType, "user", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7Im5hbWUiOiJqaG9uIn19.Jk_NZmxy5LkxGjS_dhvDq-yXxvTs6xSNxErHoen9qhs"),
+			},
+		},
+	}
+
+	for _, c := range cases {
+		result, err := checker.Check(c.in)
+		require.NoError(t, err)
+		if c.wantedResultErr != nil {
+			require.EqualError(t, c.wantedResultErr, result.Err.Error())
+		} else {
+			require.NoError(t, result.Err)
+		}
+		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, parsed client name: %s, headers: %s", c.in.Uri, c.in.Method, result.ClientName, c.in.Headers)
 	}
 }
 

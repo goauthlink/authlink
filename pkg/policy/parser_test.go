@@ -79,6 +79,25 @@ default:
   - "$var1"`,
 			want: validationErrVarIsNotAllowedInThisSection,
 		},
+		{
+			config: `
+cn:
+  - header: "x-source"
+  - jwt:
+      header: "jwt"
+      cookie: "jwt"
+default:
+  - "*"`,
+			want: validationErrHeaderOrCookieAsJWTSource,
+		},
+		{
+			config: `
+cn:
+  - test: "test"
+default:
+  - "*"`,
+			want: validationErrAtLeastOneCNSourceMustExist,
+		},
 	}
 
 	for _, tcase := range tcases {
