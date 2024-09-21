@@ -38,11 +38,6 @@ func InitNewAgent(config Config) (*Agent, error) {
 	agent.logger.Info("start initing")
 
 	agent.checker = policy.NewChecker()
-	// if config.LogCheckResults {
-	// 	checkLogger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-	// 		Level: slog.LevelInfo,
-	// 	}))
-	// }
 
 	if err := agent.updateFiles(); err != nil {
 		return nil, err
@@ -63,7 +58,19 @@ func InitNewAgent(config Config) (*Agent, error) {
 		initOptions = append(initOptions, withCert(config.TLSCert))
 	}
 
-	agent.httpServer = initHttpServer(config.Addr, initOptions...)
+	if config.LogCheckResults {
+		checkLogger := observe.NewCheckLogger(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		})))
+		initOptions = append(initOptions, withCheckLogger(checkLogger))
+	}
+
+	httpServer, err := initHttpServer(config.Addr, initOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("init http server: %w", err)
+	}
+	agent.httpServer = httpServer
+
 	agent.logger.Info("agent inited")
 
 	agent.monitorServer = initMonitoringServer(config.MonitoringAddr)

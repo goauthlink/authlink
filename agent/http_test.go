@@ -47,7 +47,8 @@ func initTestHttpServer(t *testing.T, pol *string, config *Config, opts ...httpS
 	}
 	srvOptions = append(srvOptions, opts...)
 
-	httpServer := initHttpServer(fCfg.Addr, srvOptions...)
+	httpServer, err := initHttpServer(fCfg.Addr, srvOptions...)
+	require.NoError(t, err)
 
 	return httpServer, buf
 }

@@ -36,7 +36,7 @@ func routerGetHealtzHandler() http.Handler {
 
 func (monitorSrv *monitoringServer) serve() error {
 	err := monitorSrv.srv.ListenAndServe()
-	if err != nil {
+	if err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("monitoring server listening: %w", err)
 	}
 

@@ -7,6 +7,7 @@ package agent
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -15,18 +16,26 @@ import (
 	"time"
 
 	"github.com/auth-request-agent/agent/agent/observe"
+	"github.com/auth-request-agent/agent/pkg/logging"
 	"github.com/auth-request-agent/agent/pkg/policy"
 )
 
 type httpServer struct {
-	srv     *http.Server
-	cert    *tls.Certificate
-	logger  *slog.Logger
-	checker *policy.Checker
-	metrics observe.Metrics
+	srv         *http.Server
+	cert        *tls.Certificate
+	logger      *slog.Logger
+	checkLogger *observe.CheckLogger
+	checker     *policy.Checker
+	metrics     observe.Metrics
 }
 
 type httpServerOpt func(*httpServer)
+
+func withCheckLogger(checkLogger *observe.CheckLogger) httpServerOpt {
+	return func(s *httpServer) {
+		s.checkLogger = checkLogger
+	}
+}
 
 func withCert(cert *tls.Certificate) httpServerOpt {
 	return func(s *httpServer) {
@@ -52,7 +61,7 @@ func withMetrics(metrics observe.Metrics) httpServerOpt {
 	}
 }
 
-func initHttpServer(addr string, opts ...httpServerOpt) *httpServer {
+func initHttpServer(addr string, opts ...httpServerOpt) (*httpServer, error) {
 	httpSrv := &httpServer{
 		srv: &http.Server{
 			Addr: addr,
@@ -63,11 +72,32 @@ func initHttpServer(addr string, opts ...httpServerOpt) *httpServer {
 		o(httpSrv)
 	}
 
+	if httpSrv.checkLogger == nil {
+		httpSrv.checkLogger = observe.NewNullCheckLogger()
+	}
+
+	if httpSrv.logger == nil {
+		httpSrv.logger = logging.NewNullLogger()
+	}
+
+	if httpSrv.metrics == nil {
+		return nil, errors.New("metrics provider are not configured")
+	}
+
+	if httpSrv.checker == nil {
+		return nil, errors.New("policy checker are not configured")
+	}
+
 	router := http.NewServeMux()
-	router.Handle("POST /check", routerPostCheckHandler(httpSrv.logger, httpSrv.checker, httpSrv.metrics))
+	router.Handle("POST /check", routerPostCheckHandler(
+		httpSrv.checker,
+		httpSrv.checkLogger,
+		httpSrv.logger,
+		httpSrv.metrics,
+	))
 	httpSrv.srv.Handler = router
 
-	return httpSrv
+	return httpSrv, nil
 }
 
 func (httpServer *httpServer) serve() error {
@@ -106,7 +136,7 @@ func (httpServer *httpServer) shutdown(ctx context.Context) error {
 	return nil
 }
 
-func routerPostCheckHandler(logger *slog.Logger, checker *policy.Checker, metrics observe.Metrics) http.Handler {
+func routerPostCheckHandler(checker *policy.Checker, checkLogger *observe.CheckLogger, logger *slog.Logger, metrics observe.Metrics) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
@@ -136,6 +166,8 @@ func routerPostCheckHandler(logger *slog.Logger, checker *policy.Checker, metric
 
 		finish := time.Since(start)
 		metrics.CheckRqDurationObserve(context.Background(), finish.Milliseconds())
+
+		checkLogger.Log(in, *result)
 
 		if !result.Allow {
 			w.WriteHeader(http.StatusForbidden)

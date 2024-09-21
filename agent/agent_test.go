@@ -7,6 +7,7 @@ package agent
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"log/slog"
 	"net/http"
 	"testing"
 	"time"
@@ -48,6 +49,7 @@ func Test_InitFiles(t *testing.T) {
 	defer cleanFs()
 
 	config := DefaultConfig()
+	config.LogLevel = slog.LevelError
 	config.DataFilePath = rootDir + "/data.json"
 	config.PolicyFilePath = rootDir + "/policy.yaml"
 
@@ -64,6 +66,7 @@ func Test_InitNoData(t *testing.T) {
 	defer cleanFs()
 
 	config := DefaultConfig()
+	config.LogLevel = slog.LevelError
 	config.PolicyFilePath = rootDir + "/policy.yaml"
 
 	agent, err := InitNewAgent(config)
@@ -78,11 +81,13 @@ func Test_TlsListening(t *testing.T) {
 
 	config := DefaultConfig()
 	config.PolicyFilePath = rootDir + "/policy.yaml"
+	config.LogLevel = slog.LevelError
 
 	serverCert, err := tls.LoadX509KeyPair(rootDir+"/server.crt", rootDir+"/server.key")
 	require.NoError(t, err)
 	config.Addr = ":443"
 	config.TLSCert = &serverCert
+	config.LogLevel = slog.LevelError
 
 	agent, err := InitNewAgent(config)
 	require.NoError(t, err)
@@ -124,6 +129,7 @@ func Test_UpdateFiles(t *testing.T) {
 
 	config := DefaultConfig()
 	config.PolicyFilePath = rootDir + "/policy.yaml"
+	config.LogLevel = slog.LevelError
 	config.UpdateFilesSeconds = 1
 
 	agent, err := InitNewAgent(config)
@@ -145,7 +151,6 @@ policies:
 
 	require.NoError(t, util.ReWriteFileContent(rootDir+"/policy.yaml", []byte(newPolicy)))
 
-	t.Log("waiting for file updateing")
 	time.Sleep(time.Second * 3)
 
 	assert.Equal(t, []byte(newPolicy), agent.checker.Policy())

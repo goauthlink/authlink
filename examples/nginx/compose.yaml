@@ -19,7 +19,7 @@ services:
 
   agent:
     image: ghcr.io/auth-request-agent/agent:latest
-    command: run --addr :8090 /policy.yaml
+    command: run --addr :8090 --tls-disable /policy.yaml
     volumes:
       - type: bind
         source: ./agent/policy.yaml
