@@ -23,7 +23,7 @@ func (tm *testMetrics) CheckRqTotalInc(ctx context.Context)                  {}
 func (tm *testMetrics) CheckRqFailedInc(ctx context.Context)                 {}
 func (tm *testMetrics) CheckRqDurationObserve(ctx context.Context, ms int64) {}
 
-func initTestHttpServer(t *testing.T, pol *string) (*httpServer, *bytes.Buffer) {
+func initTestHttpServer(t *testing.T, pol *string, config *Config, opts ...httpServerOpt) (*httpServer, *bytes.Buffer) {
 	var checker *policy.Checker
 	if pol != nil {
 		checker = policy.NewChecker()
@@ -35,7 +35,19 @@ func initTestHttpServer(t *testing.T, pol *string) (*httpServer, *bytes.Buffer) 
 		Level: slog.LevelDebug,
 	}))
 
-	httpServer := initHttpServer(DefaultConfig(), logger, checker, &testMetrics{})
+	fCfg := DefaultConfig()
+	if config != nil {
+		fCfg = *config
+	}
+
+	srvOptions := []httpServerOpt{
+		withLogger(logger),
+		withChecker(checker),
+		withMetrics(&testMetrics{}),
+	}
+	srvOptions = append(srvOptions, opts...)
+
+	httpServer := initHttpServer(fCfg.Addr, srvOptions...)
 
 	return httpServer, buf
 }
@@ -50,7 +62,7 @@ policies:
 
 	w := httptest.NewRecorder()
 
-	httpServer, logs := initTestHttpServer(t, &config)
+	httpServer, logs := initTestHttpServer(t, &config, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "http://localhost:8080/check", nil)
 	request.Header.Set("x-path", "/ep1/sub1")
@@ -72,7 +84,7 @@ policies:
 
 	w := httptest.NewRecorder()
 
-	httpServer, logs := initTestHttpServer(t, &config)
+	httpServer, logs := initTestHttpServer(t, &config, nil)
 
 	request := httptest.NewRequest(http.MethodPost, "http://localhost:8080/check", nil)
 	request.Header.Set("x-path", "/ep1/sub1")

@@ -53,7 +53,17 @@ func InitNewAgent(config Config) (*Agent, error) {
 		return nil, err
 	}
 
-	agent.httpServer = initHttpServer(config, agent.logger, agent.checker, metrics)
+	initOptions := []httpServerOpt{
+		withLogger(agent.logger),
+		withChecker(agent.checker),
+		withMetrics(metrics),
+	}
+
+	if config.TLSCert != nil {
+		initOptions = append(initOptions, withCert(config.TLSCert))
+	}
+
+	agent.httpServer = initHttpServer(config.Addr, initOptions...)
 	agent.logger.Info("agent inited")
 
 	agent.monitorServer = initMonitoringServer(config.MonitoringAddr)

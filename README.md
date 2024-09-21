@@ -198,6 +198,9 @@ Flags:
       --log-check-results          log info about check requests results (default false)
       --log-level string           set log level (default "info")
       --monitoring-addr string     set listening address for the /health and /metrics (e.g., [ip]:<port>) (default ":9191")
+      --tls-disable                disables TLS completely
+      --tls-cert string            set path of TLS certificate file
+      --tls-private-key string     set path of TLS private key file
       --update-files-seconds int   set policy/data file updating period (seconds) (default 0 - do not update)
 ```
 

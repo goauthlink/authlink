@@ -6,8 +6,10 @@ package agent
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -17,27 +19,76 @@ import (
 )
 
 type httpServer struct {
-	srv *http.Server
+	srv     *http.Server
+	cert    *tls.Certificate
+	logger  *slog.Logger
+	checker *policy.Checker
+	metrics observe.Metrics
 }
 
-func initHttpServer(config Config, logger *slog.Logger, checker *policy.Checker, metrics observe.Metrics) *httpServer {
-	router := http.NewServeMux()
-	router.Handle("POST /check", routerPostCheckHandler(logger, checker, metrics))
+type httpServerOpt func(*httpServer)
 
+func withCert(cert *tls.Certificate) httpServerOpt {
+	return func(s *httpServer) {
+		s.cert = cert
+	}
+}
+
+func withLogger(logger *slog.Logger) httpServerOpt {
+	return func(s *httpServer) {
+		s.logger = logger
+	}
+}
+
+func withChecker(checker *policy.Checker) httpServerOpt {
+	return func(s *httpServer) {
+		s.checker = checker
+	}
+}
+
+func withMetrics(metrics observe.Metrics) httpServerOpt {
+	return func(s *httpServer) {
+		s.metrics = metrics
+	}
+}
+
+func initHttpServer(addr string, opts ...httpServerOpt) *httpServer {
 	httpSrv := &httpServer{
 		srv: &http.Server{
-			Addr:    config.Addr,
-			Handler: router,
+			Addr: addr,
 		},
 	}
+
+	for _, o := range opts {
+		o(httpSrv)
+	}
+
+	router := http.NewServeMux()
+	router.Handle("POST /check", routerPostCheckHandler(httpSrv.logger, httpSrv.checker, httpSrv.metrics))
+	httpSrv.srv.Handler = router
 
 	return httpSrv
 }
 
 func (httpServer *httpServer) serve() error {
-	err := httpServer.srv.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
+	var listener net.Listener
+	var err error
+
+	if httpServer.cert == nil {
+		listener, err = net.Listen("tcp", httpServer.srv.Addr)
+	} else {
+		listener, err = tls.Listen("tcp", httpServer.srv.Addr, &tls.Config{
+			Certificates: []tls.Certificate{*httpServer.cert},
+		})
+	}
+	if err != nil {
 		return fmt.Errorf("http server listening: %w", err)
+	}
+	defer listener.Close()
+
+	err = httpServer.srv.Serve(listener)
+	if err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("https server listening: %w", err)
 	}
 
 	return nil
