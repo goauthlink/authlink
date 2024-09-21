@@ -75,7 +75,7 @@ func Test_InitNoData(t *testing.T) {
 	assert.Equal(t, nil, agent.checker.Data())
 }
 
-func Test_TlsListening(t *testing.T) {
+func Test_TLSListening(t *testing.T) {
 	rootDir, cleanFs := createFiles(t)
 	defer cleanFs()
 
@@ -85,7 +85,6 @@ func Test_TlsListening(t *testing.T) {
 
 	serverCert, err := tls.LoadX509KeyPair(rootDir+"/server.crt", rootDir+"/server.key")
 	require.NoError(t, err)
-	config.Addr = ":443"
 	config.TLSCert = &serverCert
 	config.LogLevel = slog.LevelError
 
@@ -111,7 +110,7 @@ func Test_TlsListening(t *testing.T) {
 			RootCAs:      caCertPool,
 		},
 	}, Timeout: 5 * time.Second}
-	request, err := http.NewRequest(http.MethodPost, "https://localhost:443/check", nil)
+	request, err := http.NewRequest(http.MethodPost, "https://localhost:8080/check", nil)
 	request.Header.Set("x-path", "/endpoint")
 	request.Header.Set("x-method", "GET")
 	request.Header.Set("x-source", "client")
