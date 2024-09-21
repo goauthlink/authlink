@@ -6,6 +6,7 @@ package logging
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
 )
 
@@ -19,10 +20,6 @@ func ParseLevel(s string) (slog.Level, error) {
 	return lvl, nil
 }
 
-type logNullWriter struct{}
-
-func (logNullWriter) Write([]byte) (int, error) { return 0, nil }
-
 func NewNullLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(logNullWriter{}, nil))
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }

@@ -5,6 +5,7 @@
 package agent
 
 import (
+	"crypto/tls"
 	"errors"
 	"log/slog"
 )
@@ -17,6 +18,7 @@ type Config struct {
 	PolicyFilePath     string
 	DataFilePath       string
 	UpdateFilesSeconds int
+	TLSCert            *tls.Certificate
 }
 
 func DefaultConfig() Config {
@@ -32,7 +34,9 @@ func DefaultConfig() Config {
 }
 
 const (
-	errUpdatePolicyFileSeconds = "update policy file period must not be less than 0 seconds"
+	errUpdatePolicyFileSeconds     = "update policy file period must not be less than 0 seconds"
+	errTLSPrivateKeyPathIsRequired = "TLS private key is required when TLS is enabled"
+	errTLSCertPathIsRequired       = "TLS certificate is required when TLS is enabled"
 )
 
 func (c *Config) Validate() error {

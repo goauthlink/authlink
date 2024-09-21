@@ -5,9 +5,14 @@
 package agent
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"log/slog"
+	"net/http"
 	"testing"
 	"time"
 
+	"github.com/auth-request-agent/agent/test/testdata"
 	"github.com/auth-request-agent/agent/test/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +21,7 @@ import (
 const (
 	testData   = `{"users":["user1","user2"]}`
 	testPolicy = `cn:
-  - header: "x-source1"
+  - header: "x-source"
 policies:
   - uri: ["/endpoint"]
     allow: ["client"]`
@@ -27,6 +32,10 @@ func createFiles(t *testing.T) (string, func()) {
 		"policy.yaml": []byte(testPolicy),
 		"data.json":   []byte(testData),
 		"data.txt":    []byte("text"),
+		"server.key":  testdata.TLSServerKey,
+		"server.crt":  testdata.TLSServerCert,
+		"client.key":  testdata.TLSClientKey,
+		"client.crt":  testdata.TLSClientCert,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -40,6 +49,7 @@ func Test_InitFiles(t *testing.T) {
 	defer cleanFs()
 
 	config := DefaultConfig()
+	config.LogLevel = slog.LevelError
 	config.DataFilePath = rootDir + "/data.json"
 	config.PolicyFilePath = rootDir + "/policy.yaml"
 
@@ -56,6 +66,7 @@ func Test_InitNoData(t *testing.T) {
 	defer cleanFs()
 
 	config := DefaultConfig()
+	config.LogLevel = slog.LevelError
 	config.PolicyFilePath = rootDir + "/policy.yaml"
 
 	agent, err := InitNewAgent(config)
@@ -64,12 +75,60 @@ func Test_InitNoData(t *testing.T) {
 	assert.Equal(t, nil, agent.checker.Data())
 }
 
+func Test_TLSListening(t *testing.T) {
+	rootDir, cleanFs := createFiles(t)
+	defer cleanFs()
+
+	config := DefaultConfig()
+	config.PolicyFilePath = rootDir + "/policy.yaml"
+	config.LogLevel = slog.LevelError
+
+	serverCert, err := tls.LoadX509KeyPair(rootDir+"/server.crt", rootDir+"/server.key")
+	require.NoError(t, err)
+	config.TLSCert = &serverCert
+	config.LogLevel = slog.LevelError
+
+	agent, err := InitNewAgent(config)
+	require.NoError(t, err)
+
+	stop := make(chan struct{}, 1)
+	go func() {
+		err = agent.Run(stop)
+	}()
+	defer func() {
+		stop <- struct{}{}
+	}()
+	time.Sleep(time.Second * 1)
+
+	clientCert, err := tls.LoadX509KeyPair(rootDir+"/client.crt", rootDir+"/client.key")
+	require.NoError(t, err)
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(testdata.TLSCACert)
+	client := http.Client{Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{
+			Certificates: []tls.Certificate{clientCert},
+			RootCAs:      caCertPool,
+		},
+	}, Timeout: 5 * time.Second}
+	request, err := http.NewRequest(http.MethodPost, "https://localhost:8080/check", nil)
+	request.Header.Set("x-path", "/endpoint")
+	request.Header.Set("x-method", "GET")
+	request.Header.Set("x-source", "client")
+	require.NoError(t, err)
+
+	response, err := client.Do(request)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+}
+
 func Test_UpdateFiles(t *testing.T) {
 	rootDir, cleanFs := createFiles(t)
 	defer cleanFs()
 
 	config := DefaultConfig()
 	config.PolicyFilePath = rootDir + "/policy.yaml"
+	config.LogLevel = slog.LevelError
 	config.UpdateFilesSeconds = 1
 
 	agent, err := InitNewAgent(config)
@@ -91,7 +150,6 @@ policies:
 
 	require.NoError(t, util.ReWriteFileContent(rootDir+"/policy.yaml", []byte(newPolicy)))
 
-	t.Log("waiting for file updateing")
 	time.Sleep(time.Second * 3)
 
 	assert.Equal(t, []byte(newPolicy), agent.checker.Policy())

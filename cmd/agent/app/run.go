@@ -5,6 +5,7 @@
 package app
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"os"
@@ -22,6 +23,9 @@ type runCmdParams struct {
 	addr               string
 	monitoringAddr     string
 	updateFilesSeconds int
+	tlsDisable         bool
+	tlsPrivateKeyPath  string
+	tlsCertPath        string
 }
 
 func exitErr(msg string) {
@@ -66,6 +70,9 @@ func newRunCmd() *cobra.Command {
 	runCmd.Flags().StringVar(&cmdParams.monitoringAddr, "monitoring-addr", ":9191", "set listening address for the /health and /metrics (e.g., [ip]:<port>)")
 	runCmd.Flags().BoolVar(&cmdParams.logCheckResults, "log-check-results", false, "log info about check requests results (default false)")
 	runCmd.Flags().IntVar(&cmdParams.updateFilesSeconds, "update-files-seconds", 0, "set policy/data file updating period (seconds) (default 0 - do not update)")
+	runCmd.Flags().BoolVar(&cmdParams.tlsDisable, "tls-disable", false, "disables TLS completely")
+	runCmd.Flags().StringVar(&cmdParams.tlsPrivateKeyPath, "tls-private-key", "", "set path of TLS private key file")
+	runCmd.Flags().StringVar(&cmdParams.tlsCertPath, "tls-cert", "", "set path of TLS certificate file")
 	runCmd.SetUsageTemplate(`Usage:
   {{.UseLine}} [policy-file.yaml] [data-file.json (optional)]
 
@@ -108,6 +115,14 @@ func prepareConfig(args []string, params runCmdParams) (*agent.Config, error) {
 	config.MonitoringAddr = params.monitoringAddr
 	config.LogCheckResults = params.logCheckResults
 	config.UpdateFilesSeconds = params.updateFilesSeconds
+
+	if !params.tlsDisable {
+		cert, err := tls.LoadX509KeyPair(params.tlsCertPath, params.tlsPrivateKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load TLS certificate: %w", err)
+		}
+		config.TLSCert = &cert
+	}
 
 	if err := config.Validate(); err != nil {
 		return nil, fmt.Errorf("params validation error: %w", err)

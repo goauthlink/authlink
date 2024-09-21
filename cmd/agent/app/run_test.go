@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/auth-request-agent/agent/test/testdata"
 	"github.com/auth-request-agent/agent/test/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,8 +16,9 @@ import (
 
 func createTestCmdParams() runCmdParams {
 	return runCmdParams{
-		logLevel: "info",
-		addr:     ":8080",
+		logLevel:   "info",
+		addr:       ":8080",
+		tlsDisable: true,
 	}
 }
 
@@ -34,6 +36,8 @@ func createFiles(t *testing.T) (string, func()) {
 		"policy.yaml": []byte(testCommonPolicy),
 		"data.json":   []byte(testCommonData),
 		"data.txt":    []byte("text"),
+		"key.pem":     testdata.TLSServerKey,
+		"cert.pem":    testdata.TLSServerCert,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -57,6 +61,31 @@ func Test_AgentOtherParams(t *testing.T) {
 	assert.Equal(t, params.updateFilesSeconds, config.UpdateFilesSeconds)
 	assert.Equal(t, params.monitoringAddr, config.MonitoringAddr)
 	assert.Equal(t, params.logCheckResults, true)
+}
+
+func Test_AgentTLSParams(t *testing.T) {
+	rootDir, cleanFs := createFiles(t)
+	defer cleanFs()
+
+	params := createTestCmdParams()
+	params.tlsDisable = true
+
+	config, err := prepareConfig([]string{rootDir + "/policy.yaml"}, params)
+	require.NoError(t, err)
+
+	assert.Nil(t, config.TLSCert, true)
+
+	// ---
+
+	params = createTestCmdParams()
+	params.tlsDisable = false
+	params.tlsCertPath = rootDir + "/cert.pem"
+	params.tlsPrivateKeyPath = rootDir + "/key.pem"
+
+	config, err = prepareConfig([]string{rootDir + "/policy.yaml"}, params)
+	require.NoError(t, err)
+
+	assert.NotNil(t, config.TLSCert)
 }
 
 func Test_AgentLogLevel(t *testing.T) {
