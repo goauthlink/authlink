@@ -1,5 +1,8 @@
 # Auth Request Agent (arqagent) 
 
+![GitHub Actions Workflow Status](https://github.com/auth-request-agent/agent/workflows/PR%20Check/badge.svg?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/auth-request-agent/agent)](https://goreportcard.com/report/github.com/auth-request-agent/agent)
+
 Auth Request Agent is an open-source simple to configure, high-performance authorization service focused on working with HTTP requests. Integrates into the infrastructure layer of your project and does not require changes to your applications. Configured in YAML format (without new declarative languages) so that your team can easily get started with it.
 
 ## Getting started 
