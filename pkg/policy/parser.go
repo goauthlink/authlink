@@ -51,11 +51,12 @@ type Config struct {
 type preparedParser struct {
 	Prefix     string
 	JsonParser *jsonpath.JSONPath
+	Jsonpath   string
 }
 
 type preparedAllow struct {
-	clients     []string
-	jsonParsers []preparedParser
+	clients []string
+	parsers []preparedParser
 }
 
 type preparedPolicy struct {
@@ -224,14 +225,14 @@ func prepareAllow(allow []string, vars Variables) (*preparedAllow, error) {
 			prepParser := preparedParser{}
 			if idx > 0 {
 				prepParser.Prefix = a[:idx]
-				a = a[idx:]
 			}
+			prepParser.Jsonpath = a[idx:]
 
 			prepParser.JsonParser = jsonpath.New("")
-			if err := prepParser.JsonParser.Parse(a); err != nil {
+			if err := prepParser.JsonParser.Parse(prepParser.Jsonpath); err != nil {
 				return nil, fmt.Errorf("fail to parse jsonpath: %s: %s", a, err.Error())
 			}
-			prepAllow.jsonParsers = append(prepAllow.jsonParsers, prepParser)
+			prepAllow.parsers = append(prepAllow.parsers, prepParser)
 
 			continue
 		}
@@ -251,7 +252,7 @@ func prepareAllow(allow []string, vars Variables) (*preparedAllow, error) {
 			}
 
 			prepAllow.clients = append(prepAllow.clients, vClients.clients...)
-			prepAllow.jsonParsers = append(prepAllow.jsonParsers, vClients.jsonParsers...)
+			prepAllow.parsers = append(prepAllow.parsers, vClients.parsers...)
 
 			continue
 		}

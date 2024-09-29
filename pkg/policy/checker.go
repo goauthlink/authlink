@@ -44,6 +44,7 @@ type Checker struct {
 	rawPolicy []byte
 	data      interface{}
 	dataMux   sync.RWMutex
+	dataCache map[string][]string
 }
 
 func NewChecker() *Checker {
@@ -70,6 +71,8 @@ func (c *Checker) SetPolicy(policy []byte) error {
 func (c *Checker) SetData(data interface{}) {
 	c.dataMux.Lock()
 	c.data = data
+	c.dataCache = map[string][]string{}
+	// todo: async warmup
 	c.dataMux.Unlock()
 }
 
@@ -93,6 +96,7 @@ func newCheckResult(allow bool, cn *preparedCn, endpoint string, err error) *Che
 	if cn != nil {
 		clientName = cn.Prefix + cn.Name
 	}
+
 	return &CheckResult{
 		Allow:      allow,
 		ClientName: clientName,
@@ -159,22 +163,32 @@ func (c *Checker) isAllowed(allow preparedAllow, cn *preparedCn) (bool, error) {
 		}
 	}
 
-	for _, allowJsonPath := range allow.jsonParsers {
-		values, err := allowJsonPath.JsonParser.FindResults(c.data)
-		if err != nil {
-			return false, fmt.Errorf("jsonpath finding results failure: %s", err.Error())
-		}
-
-		if len(values) == 0 {
-			break
-		}
-
-		for i := 0; i < len(values[0]); i++ {
-			if values[0][i].Kind() != reflect.String {
-				return false, fmt.Errorf("jsonpath result must by array of string, got: %s", values[0][i].Kind())
+	for _, allowJsonPath := range allow.parsers {
+		clients, ok := c.dataCache[allowJsonPath.Jsonpath]
+		if !ok {
+			values, err := allowJsonPath.JsonParser.FindResults(c.data)
+			if err != nil {
+				return false, fmt.Errorf("jsonpath finding results failure: %s", err.Error())
 			}
 
-			if cn.Prefix+cn.Name == allowJsonPath.Prefix+values[0][i].String() {
+			if len(values) == 0 {
+				c.dataCache[allowJsonPath.Jsonpath] = []string{}
+				break
+			}
+
+			for i := 0; i < len(values[0]); i++ {
+				if values[0][i].Kind() != reflect.String {
+					return false, fmt.Errorf("jsonpath result must by array of string, got: %s", values[0][i].Kind())
+				}
+
+				clients = append(clients, values[0][i].String())
+			}
+
+			c.dataCache[allowJsonPath.Jsonpath] = clients
+		}
+
+		for _, allowCn := range clients {
+			if cn.Prefix+cn.Name == allowJsonPath.Prefix+allowCn {
 				return true, nil
 			}
 		}

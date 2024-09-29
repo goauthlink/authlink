@@ -20,6 +20,124 @@ type testCase struct {
 	wantedResultErr error
 }
 
+func Test_QueryInVars(t *testing.T) {
+	config := `
+cn:
+  - header: "x-source1"
+  - header: "x-source2"
+    prefix: "prefix:"
+vars:
+  var1: ["{.team1[*].name}"]
+policies:
+  - uri: ["/endpoint1"]
+    allow: ["$var1", "{.team2[*].name}", "client5"]
+  - uri: ["/endpoint2"]
+    allow: ["prefix:{.team1[*].name}"]
+`
+
+	data := map[string][]struct {
+		name string
+	}{
+		"team1": {
+			{name: "client1"},
+			{name: "client2"},
+		},
+		"team2": {
+			{name: "client3"},
+			{name: "client4"},
+		},
+	}
+
+	// from vars
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
+	checker.SetData(data)
+
+	result, err := checker.Check(CheckInput{
+		Uri:     "/endpoint1",
+		Method:  http.MethodGet,
+		Headers: map[string]string{"x-source1": "client1"},
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, true, result.Allow)
+
+	// from query
+	result, err = checker.Check(CheckInput{
+		Uri:     "/endpoint1",
+		Method:  http.MethodGet,
+		Headers: map[string]string{"x-source1": "client1"},
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, true, result.Allow)
+
+	// with prefix
+	result, err = checker.Check(CheckInput{
+		Uri:     "/endpoint2",
+		Method:  http.MethodGet,
+		Headers: map[string]string{"x-source2": "client1"},
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, true, result.Allow)
+}
+
+func Test_InvalidateData(t *testing.T) {
+	config := `
+cn:
+  - header: "x-source"
+policies:
+  - uri: ["/endpoint"]
+    allow: ["{.team[*].name}"]
+`
+
+	data := map[string][]struct {
+		name string
+	}{
+		"team": {
+			{name: "client1"},
+			{name: "client2"},
+		},
+	}
+
+	checker := NewChecker()
+	require.NoError(t, checker.SetPolicy([]byte(config)))
+	checker.SetData(data)
+
+	result, err := checker.Check(CheckInput{
+		Uri:     "/endpoint",
+		Method:  http.MethodGet,
+		Headers: map[string]string{"x-source": "client1"},
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"client1", "client2"}, checker.dataCache["{.team[*].name}"])
+	assert.Equal(t, true, result.Allow)
+
+	newData := map[string][]struct {
+		name string
+	}{
+		"team": {
+			{name: "client3"},
+			{name: "client4"},
+		},
+	}
+
+	checker.SetData(newData)
+	assert.NotContains(t, checker.dataCache, "{.team[*].name}")
+
+	result, err = checker.Check(CheckInput{
+		Uri:     "/endpoint",
+		Method:  http.MethodGet,
+		Headers: map[string]string{"x-source": "client1"},
+	})
+
+	assert.Equal(t, []string{"client3", "client4"}, checker.dataCache["{.team[*].name}"])
+	assert.NoError(t, err)
+	assert.Equal(t, false, result.Allow)
+}
+
 func Test_Data(t *testing.T) {
 	config := `
 cn:
