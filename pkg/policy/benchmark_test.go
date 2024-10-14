@@ -16,20 +16,21 @@ cn:
   - header: "x-source"
     prefix: "prefix:"
 vars:
-  var1: ["client3", "client4"]
+  var1: ["client1", "client4"]
 policies:
   - uri: ["~/order/[0-9]+/info"]
     method: ["get"]
-    allow: ["client2"]
+    allow: ["client1"]
   - uri: ["~/user/[0-9]+"]
     method: ["post"]
-    allow: ["client3"]
+    allow: ["client1"]
   - uri: ["~/user/[0-9]+"]
     method: ["get"]
-    allow: ["client2"]
-  - uri: ["~/user/[0-9]+"]
-    method: ["get"]
-    allow: ["client2"]`
+    allow: ["client1"]
+  - uri: ["/ep2"]
+    allow: ["prefix:client1"]
+  - uri: ["/ep3"]
+    allow: ["$var1"]`
 
 	checker := NewChecker()
 	require.NoError(b, checker.SetPolicy([]byte(config)))
@@ -62,9 +63,6 @@ policies:
   - uri: ["~/user/[0-9]+"]
     method: ["get"]
     allow: ["client2"]
-  - uri: ["~/user/[0-9]+"]
-    method: ["get"]
-    allow: ["client2"]
   - uri: ["/ep2"]
     allow: ["prefix:{.team2[*].name}"]
   - uri: ["/ep3"]
@@ -72,18 +70,24 @@ policies:
   - uri: ["/ep1"]
     allow: ["{.team1[*].name}"]`
 
-	data := map[string][]struct {
-		name string
-	}{
-		"team1": {
-			{name: "client1"},
-			{name: "client2"},
-		},
-		"team2": {
-			{name: "client3"},
-			{name: "client4"},
-		},
-	}
+	data := []byte(`{
+  "team1": [
+    {
+      "name": "client1" 
+    },
+    {
+      "name": "client2"
+    }
+  ],
+  "team2": [
+    {
+      "name": "client1"
+    },
+    {
+      "name": "client2" 
+    }
+  ]
+}`)
 
 	checker := NewChecker()
 	require.NoError(b, checker.SetPolicy([]byte(config)))

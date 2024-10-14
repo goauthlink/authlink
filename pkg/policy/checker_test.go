@@ -5,6 +5,7 @@
 package policy
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -32,21 +33,26 @@ policies:
   - uri: ["/endpoint1"]
     allow: ["$var1", "{.team2[*].name}", "client5"]
   - uri: ["/endpoint2"]
-    allow: ["prefix:{.team1[*].name}"]
-`
+    allow: ["prefix:{.team1[*].name}"]`
 
-	data := map[string][]struct {
-		name string
-	}{
-		"team1": {
-			{name: "client1"},
-			{name: "client2"},
-		},
-		"team2": {
-			{name: "client3"},
-			{name: "client4"},
-		},
-	}
+	data := []byte(`{
+  "team1": [
+    {
+      "name": "client1" 
+    },
+    {
+      "name": "client2"
+    }
+  ],
+  "team2": [
+    {
+      "name": "client3"
+    },
+    {
+      "name": "client4" 
+    }
+  ]
+}`)
 
 	// from vars
 	checker := NewChecker()
@@ -59,7 +65,7 @@ policies:
 		Headers: map[string]string{"x-source1": "client1"},
 	})
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, true, result.Allow)
 
 	// from query
@@ -92,18 +98,20 @@ policies:
     allow: ["{.team[*].name}"]
 `
 
-	data := map[string][]struct {
-		name string
-	}{
-		"team": {
-			{name: "client1"},
-			{name: "client2"},
-		},
-	}
+	data := []byte(`{
+"team": [
+    {
+      "name": "client1" 
+    },
+    {
+      "name": "client2"
+    }
+  ]
+}`)
 
 	checker := NewChecker()
 	require.NoError(t, checker.SetPolicy([]byte(config)))
-	checker.SetData(data)
+	require.NoError(t, checker.SetData(data))
 
 	result, err := checker.Check(CheckInput{
 		Uri:     "/endpoint",
@@ -115,16 +123,18 @@ policies:
 	assert.Equal(t, []string{"client1", "client2"}, checker.dataCache["{.team[*].name}"])
 	assert.Equal(t, true, result.Allow)
 
-	newData := map[string][]struct {
-		name string
-	}{
-		"team": {
-			{name: "client3"},
-			{name: "client4"},
-		},
-	}
+	newData := []byte(`{
+"team": [
+    {
+      "name": "client3" 
+    },
+    {
+      "name": "client4"
+    }
+  ]
+}`)
 
-	checker.SetData(newData)
+	require.NoError(t, checker.SetData(newData))
 	assert.NotContains(t, checker.dataCache, "{.team[*].name}")
 
 	result, err = checker.Check(CheckInput{
@@ -153,24 +163,32 @@ policies:
     allow: ["prefix:{.team2[*].name}"]
   - uri: ["/ep3"]
     allow: ["$var1"]
+  - uri: ["/ep4"]
+    allow: ["{.team3[*].name}"]
 `
 
-	data := map[string][]struct {
-		name string
-	}{
-		"team1": {
-			{name: "client1"},
-			{name: "client2"},
-		},
-		"team2": {
-			{name: "client3"},
-			{name: "client4"},
-		},
-	}
+	data := []byte(`{
+  "team1": [
+    {
+      "name": "client1" 
+    },
+    {
+      "name": "client2"
+    }
+  ],
+  "team2": [
+    {
+      "name": "client3"
+    },
+    {
+      "name": "client4" 
+    }
+  ]
+}`)
 
 	checker := NewChecker()
 	require.NoError(t, checker.SetPolicy([]byte(config)))
-	checker.SetData(data)
+	require.NoError(t, checker.SetData(data))
 
 	cases := []testCase{
 		{
@@ -239,12 +257,23 @@ policies:
 			},
 			allowed: true,
 		},
+		// data not found
+		{
+			in: CheckInput{
+				Uri:     "/ep4",
+				Method:  http.MethodGet,
+				Headers: map[string]string{"x-source1": "client3"},
+			},
+			allowed:         false,
+			wantedResultErr: errors.New("jsonpath finding results failure: team3 is not found"),
+		},
 	}
 
 	for _, c := range cases {
 		result, err := checker.Check(c.in)
 		assert.NoError(t, err)
 		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s", c.in.Uri, c.in.Method)
+		assert.Equal(t, c.wantedResultErr, result.Err)
 	}
 }
 

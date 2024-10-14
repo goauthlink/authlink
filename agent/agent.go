@@ -6,7 +6,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -162,16 +161,14 @@ func (a *Agent) updateFiles() error {
 		return nil
 	}
 
-	dataData, err := os.ReadFile(a.config.DataFilePath)
+	data, err := os.ReadFile(a.config.DataFilePath)
 	if err != nil {
 		return fmt.Errorf("data file updating failed: %s", err)
 	}
 
-	var newData interface{}
-	if err := json.Unmarshal(dataData, &newData); err != nil {
-		return fmt.Errorf("parse data: %w", err)
+	if err := a.checker.SetData(data); err != nil {
+		return fmt.Errorf("loading data.json: %w", err)
 	}
-	a.checker.SetData(newData)
 
 	a.logger.Info("data file updated")
 
