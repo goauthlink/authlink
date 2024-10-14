@@ -146,7 +146,7 @@ func routerPostCheckHandler(checker *policy.Checker, checkLogger *observe.CheckL
 
 		in := policy.CheckInput{
 			Uri:     r.Header.Get("x-path"), // todo: move to settings
-			Method:  r.Header.Get("x-method"),
+			Method:  strings.ToUpper(r.Header.Get("x-method")),
 			Headers: map[string]string{},
 		}
 
