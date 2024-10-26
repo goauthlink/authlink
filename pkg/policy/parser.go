@@ -20,17 +20,17 @@ import (
 
 type CnJWT struct {
 	Payload     string  `yaml:"payload"`
-	Header      *string `yaml:"header"`
-	Cookie      *string `yaml:"cookie"`
-	KeyFile     *string `yaml:"keyFile"`
-	KeyFileData []byte
+	Header      *string `yaml:"header,omitempty"`
+	Cookie      *string `yaml:"cookie,omitempty"`
+	KeyFile     *string `yaml:"keyFile,omitempty"`
+	KeyFileData []byte  `yaml:"-"`
 	// KeyCache string  `yaml:"keyCache"` todo: need to implement
 }
 
 type Cn struct {
 	Prefix string  `yaml:"prefix"`
-	Header *string `yaml:"header"`
-	JWT    *CnJWT  `yaml:"jwt"`
+	Header *string `yaml:"header,omitempty"`
+	JWT    *CnJWT  `yaml:"jwt,omitempty"`
 }
 
 type Policy struct {

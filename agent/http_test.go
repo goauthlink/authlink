@@ -53,6 +53,55 @@ func initTestHttpServer(t *testing.T, pol *string, config *Config, opts ...httpS
 	return httpServer, buf
 }
 
+func Test_HTTPMethodCharCase(t *testing.T) {
+	config := `
+cn:
+  - header: "x-source"
+policies:
+  - uri: ["/ep1"]
+    method: ["get"]
+    allow: ["client1"]
+  - uri: ["/ep2"]
+    method: ["POST"]
+    allow: ["client1"]`
+
+	w := httptest.NewRecorder()
+
+	httpServer, logs := initTestHttpServer(t, &config, nil)
+
+	request := httptest.NewRequest(http.MethodPost, "http://localhost:8080/check", nil)
+	request.Header.Set("x-path", "/ep1")
+	request.Header.Set("x-method", "GET")
+	request.Header.Set("x-source", "client1")
+
+	httpServer.srv.Handler.ServeHTTP(w, request)
+
+	assert.Equal(t, http.StatusOK, w.Code, logs)
+
+	// --
+	request.Header.Set("x-method", "get")
+
+	httpServer.srv.Handler.ServeHTTP(w, request)
+
+	assert.Equal(t, http.StatusOK, w.Code, logs)
+
+	// --
+	request.Header.Set("x-path", "/ep2")
+	request.Header.Set("x-method", "POST")
+
+	httpServer.srv.Handler.ServeHTTP(w, request)
+
+	assert.Equal(t, http.StatusOK, w.Code, logs)
+
+	// --
+	request.Header.Set("x-path", "/ep2")
+	request.Header.Set("x-method", "post")
+
+	httpServer.srv.Handler.ServeHTTP(w, request)
+
+	assert.Equal(t, http.StatusOK, w.Code, logs)
+}
+
 func Test_CheckAllowHandler(t *testing.T) {
 	config := `
 cn:

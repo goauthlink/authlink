@@ -5,6 +5,7 @@
 package policy
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -68,12 +69,20 @@ func (c *Checker) SetPolicy(policy []byte) error {
 	return nil
 }
 
-func (c *Checker) SetData(data interface{}) {
+func (c *Checker) SetData(data []byte) error {
+	var newData interface{}
+	err := json.Unmarshal([]byte(data), &newData)
+	if err != nil {
+		return fmt.Errorf("invalid json format: %w", err)
+	}
+
 	c.dataMux.Lock()
-	c.data = data
+	c.data = newData
 	c.dataCache = map[string][]string{}
 	// todo: async warmup
 	c.dataMux.Unlock()
+
+	return nil
 }
 
 func (c *Checker) Data() interface{} {
@@ -124,32 +133,21 @@ func (c *Checker) Check(in CheckInput) (*CheckResult, error) {
 			if policy.RegexUri.MatchString(in.Uri) {
 				if policy.Method[0] == "*" || slices.Contains(policy.Method, in.Method) {
 					isAllowed, err := c.isAllowed(policy.Allow, cn)
-					if err != nil {
-						return newCheckResult(false, cn, policy.RegexUri.String(), nil), err
-					}
-
-					return newCheckResult(isAllowed, cn, policy.RegexUri.String(), nil), nil
+					return newCheckResult(isAllowed, cn, policy.RegexUri.String(), err), nil
 				}
 			}
 		}
 
 		if policy.Uri == in.Uri && (policy.Method[0] == "*" || slices.Contains(policy.Method, in.Method)) {
 			isAllowed, err := c.isAllowed(policy.Allow, cn)
-			if err != nil {
-				return newCheckResult(false, cn, policy.Uri, nil), err
-			}
-
-			return newCheckResult(isAllowed, cn, policy.Uri, nil), nil
+			return newCheckResult(isAllowed, cn, policy.Uri, err), nil
 		}
 	}
 
 	// apply default
 	isAllowed, err := c.isAllowed(c.prepCfg.Default, cn)
-	if err != nil {
-		return newCheckResult(false, cn, "default", nil), err
-	}
 
-	return newCheckResult(isAllowed, cn, "default", nil), nil
+	return newCheckResult(isAllowed, cn, "default", err), nil
 }
 
 func (c *Checker) isAllowed(allow preparedAllow, cn *preparedCn) (bool, error) {
@@ -177,12 +175,15 @@ func (c *Checker) isAllowed(allow preparedAllow, cn *preparedCn) (bool, error) {
 			}
 
 			for i := 0; i < len(values[0]); i++ {
-				if values[0][i].Kind() != reflect.String {
-					return false, fmt.Errorf("jsonpath result must by array of string, got: %s", values[0][i].Kind())
+				if values[0][i].Kind() != reflect.Interface {
+					continue
 				}
-
-				clients = append(clients, values[0][i].String())
+				if val, ok := values[0][i].Interface().(string); ok {
+					clients = append(clients, val)
+				}
 			}
+
+			// fmt.Printf("clients: %s \n", clients)
 
 			c.dataCache[allowJsonPath.Jsonpath] = clients
 		}
