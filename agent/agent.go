@@ -12,20 +12,27 @@ import (
 	"sync"
 	"time"
 
+	"github.com/auth-request-agent/agent/agent/config"
+	"github.com/auth-request-agent/agent/agent/grpcsrv"
+	"github.com/auth-request-agent/agent/agent/httpsrv"
 	"github.com/auth-request-agent/agent/agent/observe"
 	"github.com/auth-request-agent/agent/pkg/policy"
 )
 
-type Agent struct {
-	httpServer    *httpServer
-	monitorServer *monitoringServer
-	logger        *slog.Logger
-	checker       *policy.Checker
-	config        Config
-	done          chan struct{}
+type server interface {
+	Serve() error
+	Shutdown(ctx context.Context) error
 }
 
-func InitNewAgent(config Config) (*Agent, error) {
+type Agent struct {
+	servers []server
+	logger  *slog.Logger
+	checker *policy.Checker
+	config  config.Config
+	done    chan struct{}
+}
+
+func Init(config config.Config) (*Agent, error) {
 	agent := &Agent{
 		logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 			Level: config.LogLevel,
@@ -47,33 +54,52 @@ func InitNewAgent(config Config) (*Agent, error) {
 		return nil, err
 	}
 
-	initOptions := []httpServerOpt{
-		withLogger(agent.logger),
-		withChecker(agent.checker),
-		withMetrics(metrics),
+	httpServerOptions := []httpsrv.ServerOpt{
+		httpsrv.WithLogger(agent.logger),
+		httpsrv.WithChecker(agent.checker),
+		httpsrv.WithMetrics(metrics),
+	}
+
+	grpcServerOptions := []grpcsrv.ServerOpt{
+		grpcsrv.WithLogger(agent.logger),
+		grpcsrv.WithChecker(agent.checker),
+		grpcsrv.WithMetrics(metrics),
 	}
 
 	if config.TLSCert != nil {
-		initOptions = append(initOptions, withCert(config.TLSCert))
+		httpServerOptions = append(httpServerOptions, httpsrv.WithCert(config.TLSCert))
 	}
 
 	if config.LogCheckResults {
 		checkLogger := observe.NewCheckLogger(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 			Level: slog.LevelInfo,
 		})))
-		initOptions = append(initOptions, withCheckLogger(checkLogger))
+		httpServerOptions = append(httpServerOptions, httpsrv.WithCheckLogger(checkLogger))
+		grpcServerOptions = append(grpcServerOptions, grpcsrv.WithCheckLogger(checkLogger))
 	}
 
-	httpServer, err := initHttpServer(config.Addr, initOptions...)
+	httpServer, err := httpsrv.New(config.HttpAddr, httpServerOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("init http server: %w", err)
 	}
-	agent.httpServer = httpServer
+
+	grpcServer, err := grpcsrv.New(config.GrpcAddr, grpcServerOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("init grpc server: %w", err)
+	}
+
+	observeServerOpions := []observe.ServerOpt{
+		observe.WithLogger(agent.logger),
+	}
+	observeServer := observe.NewServer(config.MonitoringAddr, observeServerOpions...)
+
+	agent.servers = []server{
+		httpServer,
+		grpcServer,
+		observeServer,
+	}
 
 	agent.logger.Info("agent inited")
-
-	agent.monitorServer = initMonitoringServer(config.MonitoringAddr)
-	agent.logger.Info("monitoring inited")
 
 	return agent, nil
 }
@@ -98,17 +124,13 @@ func (a *Agent) Run(stop chan struct{}) error {
 		}
 	}()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		errchan <- a.httpServer.serve()
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		errchan <- a.monitorServer.serve()
-	}()
+	for _, srv := range a.servers {
+		wg.Add(1)
+		go func(srv server) {
+			defer wg.Done()
+			errchan <- srv.Serve()
+		}(srv)
+	}
 
 	if a.config.UpdateFilesSeconds > 0 {
 		wg.Add(1)
@@ -137,7 +159,6 @@ func (a *Agent) Run(stop chan struct{}) error {
 	<-stop
 	a.logger.Info("received exit signal")
 
-	a.logger.Info("shutting down..")
 	a.shutdown(cancel, ctx)
 	close(errchan)
 	wg.Wait()
@@ -177,15 +198,9 @@ func (a *Agent) updateFiles() error {
 
 func (agent *Agent) shutdown(cancel context.CancelFunc, ctx context.Context) {
 	cancel()
-	if err := agent.httpServer.shutdown(ctx); err != nil {
-		agent.logger.Error(err.Error())
+	for _, srv := range agent.servers {
+		srv.Shutdown(ctx)
 	}
-	agent.logger.Info("http server stopped")
-
-	if err := agent.monitorServer.shutdown(ctx); err != nil {
-		agent.logger.Error(err.Error())
-	}
-	agent.logger.Info("monitoring server stopped")
 }
 
 func (a *Agent) WaitUntilCompletion() {

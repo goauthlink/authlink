@@ -2,7 +2,7 @@
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
-package agent
+package httpsrv
 
 import (
 	"context"
@@ -20,8 +20,8 @@ import (
 	"github.com/auth-request-agent/agent/pkg/policy"
 )
 
-type httpServer struct {
-	srv         *http.Server
+type Server struct {
+	httpserver  *http.Server
 	cert        *tls.Certificate
 	logger      *slog.Logger
 	checkLogger *observe.CheckLogger
@@ -29,41 +29,41 @@ type httpServer struct {
 	metrics     observe.Metrics
 }
 
-type httpServerOpt func(*httpServer)
+type ServerOpt func(*Server)
 
-func withCheckLogger(checkLogger *observe.CheckLogger) httpServerOpt {
-	return func(s *httpServer) {
+func WithCheckLogger(checkLogger *observe.CheckLogger) ServerOpt {
+	return func(s *Server) {
 		s.checkLogger = checkLogger
 	}
 }
 
-func withCert(cert *tls.Certificate) httpServerOpt {
-	return func(s *httpServer) {
+func WithCert(cert *tls.Certificate) ServerOpt {
+	return func(s *Server) {
 		s.cert = cert
 	}
 }
 
-func withLogger(logger *slog.Logger) httpServerOpt {
-	return func(s *httpServer) {
+func WithLogger(logger *slog.Logger) ServerOpt {
+	return func(s *Server) {
 		s.logger = logger
 	}
 }
 
-func withChecker(checker *policy.Checker) httpServerOpt {
-	return func(s *httpServer) {
+func WithChecker(checker *policy.Checker) ServerOpt {
+	return func(s *Server) {
 		s.checker = checker
 	}
 }
 
-func withMetrics(metrics observe.Metrics) httpServerOpt {
-	return func(s *httpServer) {
+func WithMetrics(metrics observe.Metrics) ServerOpt {
+	return func(s *Server) {
 		s.metrics = metrics
 	}
 }
 
-func initHttpServer(addr string, opts ...httpServerOpt) (*httpServer, error) {
-	httpSrv := &httpServer{
-		srv: &http.Server{
+func New(addr string, opts ...ServerOpt) (*Server, error) {
+	httpSrv := &Server{
+		httpserver: &http.Server{
 			Addr: addr,
 		},
 	}
@@ -81,11 +81,11 @@ func initHttpServer(addr string, opts ...httpServerOpt) (*httpServer, error) {
 	}
 
 	if httpSrv.metrics == nil {
-		return nil, errors.New("metrics provider are not configured")
+		httpSrv.metrics = observe.NewNullMetrics()
 	}
 
 	if httpSrv.checker == nil {
-		return nil, errors.New("policy checker are not configured")
+		return nil, errors.New("policy checker are not configured for http server")
 	}
 
 	router := http.NewServeMux()
@@ -95,20 +95,22 @@ func initHttpServer(addr string, opts ...httpServerOpt) (*httpServer, error) {
 		httpSrv.logger,
 		httpSrv.metrics,
 	))
-	httpSrv.srv.Handler = router
+	httpSrv.httpserver.Handler = router
 
 	return httpSrv, nil
 }
 
-func (httpServer *httpServer) serve() error {
+func (srv *Server) Serve() error {
 	var listener net.Listener
 	var err error
 
-	if httpServer.cert == nil {
-		listener, err = net.Listen("tcp", httpServer.srv.Addr)
+	srv.logger.Info("http server is starting")
+
+	if srv.cert == nil {
+		listener, err = net.Listen("tcp", srv.httpserver.Addr)
 	} else {
-		listener, err = tls.Listen("tcp", httpServer.srv.Addr, &tls.Config{
-			Certificates: []tls.Certificate{*httpServer.cert},
+		listener, err = tls.Listen("tcp", srv.httpserver.Addr, &tls.Config{
+			Certificates: []tls.Certificate{*srv.cert},
 		})
 	}
 	if err != nil {
@@ -116,7 +118,7 @@ func (httpServer *httpServer) serve() error {
 	}
 	defer listener.Close()
 
-	err = httpServer.srv.Serve(listener)
+	err = srv.httpserver.Serve(listener)
 	if err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("https server listening: %w", err)
 	}
@@ -124,14 +126,16 @@ func (httpServer *httpServer) serve() error {
 	return nil
 }
 
-func (httpServer *httpServer) shutdown(ctx context.Context) error {
+func (httpServer *Server) Shutdown(ctx context.Context) error {
 	ctxd, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
-	err := httpServer.srv.Shutdown(ctxd)
+	err := httpServer.httpserver.Shutdown(ctxd)
 	if err != nil {
 		return fmt.Errorf("shutdown http server: %w", err)
 	}
+
+	httpServer.logger.Info("http server stopped")
 
 	return nil
 }
@@ -141,6 +145,8 @@ func routerPostCheckHandler(checker *policy.Checker, checkLogger *observe.CheckL
 		start := time.Now()
 
 		defer func() {
+			finish := time.Since(start)
+			metrics.CheckRqDurationObserve(context.Background(), finish.Milliseconds())
 			metrics.CheckRqTotalInc(context.Background())
 		}()
 
@@ -163,9 +169,6 @@ func routerPostCheckHandler(checker *policy.Checker, checkLogger *observe.CheckL
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-
-		finish := time.Since(start)
-		metrics.CheckRqDurationObserve(context.Background(), finish.Milliseconds())
 
 		checkLogger.Log(in, *result)
 

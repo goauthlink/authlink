@@ -2,7 +2,7 @@
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
-package agent
+package observe
 
 import (
 	"net/http"
@@ -15,7 +15,7 @@ import (
 func Test_GetHealtHandler(t *testing.T) {
 	w := httptest.NewRecorder()
 
-	server := initMonitoringServer(":9191")
+	server := NewServer(":9191")
 
 	request := httptest.NewRequest(http.MethodGet, "http://localhost:9191/health", nil)
 

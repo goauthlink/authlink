@@ -84,3 +84,13 @@ func (m *agentMetrics) CheckRqFailedInc(ctx context.Context) {
 func (m *agentMetrics) CheckRqDurationObserve(ctx context.Context, ms int64) {
 	m.checkRqDurationHistogram.Record(ctx, ms)
 }
+
+type testMetrics struct{}
+
+func (tm *testMetrics) CheckRqTotalInc(ctx context.Context)                  {}
+func (tm *testMetrics) CheckRqFailedInc(ctx context.Context)                 {}
+func (tm *testMetrics) CheckRqDurationObserve(ctx context.Context, ms int64) {}
+
+func NewNullMetrics() *testMetrics {
+	return &testMetrics{}
+}

@@ -2,7 +2,7 @@
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
-package agent
+package config
 
 import (
 	"crypto/tls"
@@ -11,7 +11,8 @@ import (
 )
 
 type Config struct {
-	Addr               string
+	HttpAddr           string
+	GrpcAddr           string
 	MonitoringAddr     string
 	LogLevel           slog.Level
 	LogCheckResults    bool
@@ -23,7 +24,8 @@ type Config struct {
 
 func DefaultConfig() Config {
 	return Config{
-		Addr:               ":8080",
+		HttpAddr:           ":8181",
+		GrpcAddr:           ":8282",
 		MonitoringAddr:     ":9191",
 		LogLevel:           slog.LevelInfo,
 		LogCheckResults:    false,

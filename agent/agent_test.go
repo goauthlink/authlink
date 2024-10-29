@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/auth-request-agent/agent/agent/config"
 	"github.com/auth-request-agent/agent/test/testdata"
 	"github.com/auth-request-agent/agent/test/util"
 	"github.com/stretchr/testify/assert"
@@ -48,12 +49,12 @@ func Test_InitFiles(t *testing.T) {
 	rootDir, cleanFs := createFiles(t)
 	defer cleanFs()
 
-	config := DefaultConfig()
+	config := config.DefaultConfig()
 	config.LogLevel = slog.LevelError
 	config.DataFilePath = rootDir + "/data.json"
 	config.PolicyFilePath = rootDir + "/policy.yaml"
 
-	agent, err := InitNewAgent(config)
+	agent, err := Init(config)
 	require.NoError(t, err)
 
 	checkerD := agent.checker.Data()
@@ -65,11 +66,11 @@ func Test_InitNoData(t *testing.T) {
 	rootDir, cleanFs := createFiles(t)
 	defer cleanFs()
 
-	config := DefaultConfig()
+	config := config.DefaultConfig()
 	config.LogLevel = slog.LevelError
 	config.PolicyFilePath = rootDir + "/policy.yaml"
 
-	agent, err := InitNewAgent(config)
+	agent, err := Init(config)
 	require.NoError(t, err)
 
 	assert.Equal(t, nil, agent.checker.Data())
@@ -79,16 +80,15 @@ func Test_TLSListening(t *testing.T) {
 	rootDir, cleanFs := createFiles(t)
 	defer cleanFs()
 
-	config := DefaultConfig()
+	config := config.DefaultConfig()
 	config.PolicyFilePath = rootDir + "/policy.yaml"
-	config.LogLevel = slog.LevelError
 
 	serverCert, err := tls.LoadX509KeyPair(rootDir+"/server.crt", rootDir+"/server.key")
 	require.NoError(t, err)
 	config.TLSCert = &serverCert
 	config.LogLevel = slog.LevelError
 
-	agent, err := InitNewAgent(config)
+	agent, err := Init(config)
 	require.NoError(t, err)
 
 	stop := make(chan struct{}, 1)
@@ -110,7 +110,7 @@ func Test_TLSListening(t *testing.T) {
 			RootCAs:      caCertPool,
 		},
 	}, Timeout: 5 * time.Second}
-	request, err := http.NewRequest(http.MethodPost, "https://localhost:8080/check", nil)
+	request, err := http.NewRequest(http.MethodPost, "https://localhost:8181/check", nil)
 	request.Header.Set("x-path", "/endpoint")
 	request.Header.Set("x-method", "GET")
 	request.Header.Set("x-source", "client")
@@ -126,12 +126,12 @@ func Test_UpdateFiles(t *testing.T) {
 	rootDir, cleanFs := createFiles(t)
 	defer cleanFs()
 
-	config := DefaultConfig()
+	config := config.DefaultConfig()
 	config.PolicyFilePath = rootDir + "/policy.yaml"
 	config.LogLevel = slog.LevelError
 	config.UpdateFilesSeconds = 1
 
-	agent, err := InitNewAgent(config)
+	agent, err := Init(config)
 	require.NoError(t, err)
 
 	stop := make(chan struct{}, 1)
