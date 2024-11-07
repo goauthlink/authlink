@@ -104,7 +104,7 @@ func (srv *Server) Serve() error {
 	var listener net.Listener
 	var err error
 
-	srv.logger.Info("http server is starting")
+	srv.logger.Info(fmt.Sprintf("http server is starting on %s", srv.httpserver.Addr))
 
 	if srv.cert == nil {
 		listener, err = net.Listen("tcp", srv.httpserver.Addr)

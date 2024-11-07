@@ -199,7 +199,7 @@ func (a *Agent) updateFiles() error {
 func (agent *Agent) shutdown(cancel context.CancelFunc, ctx context.Context) {
 	cancel()
 	for _, srv := range agent.servers {
-		srv.Shutdown(ctx)
+		srv.Shutdown(ctx) //nolint: errcheck
 	}
 }
 

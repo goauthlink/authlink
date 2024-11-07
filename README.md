@@ -197,14 +197,15 @@ Usage:
   main run [flags] [policy-file.yaml] [data-file.json (optional)]
 
 Flags:
-      --addr string                set listening address of the http server (e.g., [ip]:<port>) (default ":8080")
+      --grpc-addr string           set listening address of the grpc server (e.g., [ip]:<port>) (default ":8282")
+      --http-addr string           set listening address of the http server (e.g., [ip]:<port>) (default ":8181")
       --log-check-results          log info about check requests results (default false)
       --log-level string           set log level (default "info")
       --monitoring-addr string     set listening address for the /health and /metrics (e.g., [ip]:<port>) (default ":9191")
-      --tls-disable                disables TLS completely
       --tls-cert string            set path of TLS certificate file
+      --tls-disable                disables TLS completely
       --tls-private-key string     set path of TLS private key file
-      --update-files-seconds int   set policy/data file updating period (seconds) (default 0 - do not update)
+      --update-files-seconds int   set policy/data file updating period (seconds) (default 0 - do not update)%
 ```
 
 - `policy-file.yaml` [authorization policies](#configuring-policies)
@@ -272,7 +273,7 @@ time= level=INFO msg="check result: false, uri: test, method: POST, headers: map
 time= level=INFO msg="check result: false, uri: user, method: GET, headers: map[accept:*/* user-agent:curl/8.6.0 x-method:GET x-path:user x-source:client2], policy endpoint: default, parsed client: client2"
 ```
 
-Arguments desctiption:
+Arguments description:
 
 - `uri` - original request URI
 - `method` - original request method

@@ -88,7 +88,7 @@ func New(addr string, opts ...ServerOpt) (*Server, error) {
 func (s *Server) Serve() error {
 	authv3.RegisterAuthorizationServer(s.server, s)
 
-	s.logger.Info("grpc server is starting")
+	s.logger.Info(fmt.Sprintf("grpc server is starting on %s", s.addr))
 
 	listener, err := net.Listen("tcp", s.addr)
 	if err != nil {

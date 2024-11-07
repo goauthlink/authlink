@@ -50,7 +50,7 @@ func routerGetHealtzHandler() http.Handler {
 
 func (monitorSrv *Server) Serve() error {
 	err := monitorSrv.srv.ListenAndServe()
-	monitorSrv.logger.Info("monitor server is starting..")
+	monitorSrv.logger.Info(fmt.Sprintf("monitor server is starting on %s", monitorSrv.srv.Addr))
 	if err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("monitoring server listening: %w", err)
 	}
