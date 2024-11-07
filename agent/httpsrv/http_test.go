@@ -2,28 +2,22 @@
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
-package agent
+package httpsrv
 
 import (
 	"bytes"
-	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/auth-request-agent/agent/agent/config"
 	"github.com/auth-request-agent/agent/pkg/policy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type testMetrics struct{}
-
-func (tm *testMetrics) CheckRqTotalInc(ctx context.Context)                  {}
-func (tm *testMetrics) CheckRqFailedInc(ctx context.Context)                 {}
-func (tm *testMetrics) CheckRqDurationObserve(ctx context.Context, ms int64) {}
-
-func initTestHttpServer(t *testing.T, pol *string, config *Config, opts ...httpServerOpt) (*httpServer, *bytes.Buffer) {
+func initTestHttpServer(t *testing.T, pol *string, cfg *config.Config, opts ...ServerOpt) (*Server, *bytes.Buffer) {
 	var checker *policy.Checker
 	if pol != nil {
 		checker = policy.NewChecker()
@@ -35,19 +29,18 @@ func initTestHttpServer(t *testing.T, pol *string, config *Config, opts ...httpS
 		Level: slog.LevelDebug,
 	}))
 
-	fCfg := DefaultConfig()
-	if config != nil {
-		fCfg = *config
+	fCfg := config.DefaultConfig()
+	if cfg != nil {
+		fCfg = *cfg
 	}
 
-	srvOptions := []httpServerOpt{
-		withLogger(logger),
-		withChecker(checker),
-		withMetrics(&testMetrics{}),
+	srvOptions := []ServerOpt{
+		WithLogger(logger),
+		WithChecker(checker),
 	}
 	srvOptions = append(srvOptions, opts...)
 
-	httpServer, err := initHttpServer(fCfg.Addr, srvOptions...)
+	httpServer, err := New(fCfg.HttpAddr, srvOptions...)
 	require.NoError(t, err)
 
 	return httpServer, buf
@@ -74,14 +67,14 @@ policies:
 	request.Header.Set("x-method", "GET")
 	request.Header.Set("x-source", "client1")
 
-	httpServer.srv.Handler.ServeHTTP(w, request)
+	httpServer.httpserver.Handler.ServeHTTP(w, request)
 
 	assert.Equal(t, http.StatusOK, w.Code, logs)
 
 	// --
 	request.Header.Set("x-method", "get")
 
-	httpServer.srv.Handler.ServeHTTP(w, request)
+	httpServer.httpserver.Handler.ServeHTTP(w, request)
 
 	assert.Equal(t, http.StatusOK, w.Code, logs)
 
@@ -89,7 +82,7 @@ policies:
 	request.Header.Set("x-path", "/ep2")
 	request.Header.Set("x-method", "POST")
 
-	httpServer.srv.Handler.ServeHTTP(w, request)
+	httpServer.httpserver.Handler.ServeHTTP(w, request)
 
 	assert.Equal(t, http.StatusOK, w.Code, logs)
 
@@ -97,7 +90,7 @@ policies:
 	request.Header.Set("x-path", "/ep2")
 	request.Header.Set("x-method", "post")
 
-	httpServer.srv.Handler.ServeHTTP(w, request)
+	httpServer.httpserver.Handler.ServeHTTP(w, request)
 
 	assert.Equal(t, http.StatusOK, w.Code, logs)
 }
@@ -119,7 +112,7 @@ policies:
 	request.Header.Set("x-method", "GET")
 	request.Header.Set("x-source", "client1")
 
-	httpServer.srv.Handler.ServeHTTP(w, request)
+	httpServer.httpserver.Handler.ServeHTTP(w, request)
 
 	assert.Equal(t, http.StatusOK, w.Code, logs)
 }
@@ -141,7 +134,7 @@ policies:
 	request.Header.Set("x-method", "GET")
 	request.Header.Set("x-source", "client2")
 
-	httpServer.srv.Handler.ServeHTTP(w, request)
+	httpServer.httpserver.Handler.ServeHTTP(w, request)
 
 	assert.Equal(t, http.StatusForbidden, w.Code, logs)
 }

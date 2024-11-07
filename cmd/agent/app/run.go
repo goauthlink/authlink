@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/auth-request-agent/agent/agent"
+	"github.com/auth-request-agent/agent/agent/config"
 	"github.com/auth-request-agent/agent/pkg/cmd"
 	"github.com/auth-request-agent/agent/pkg/logging"
 	"github.com/spf13/cobra"
@@ -20,8 +21,9 @@ import (
 type runCmdParams struct {
 	logLevel           string
 	logCheckResults    bool
-	addr               string
-	monitoringAddr     string
+	httpAddr           string
+	grpcAddr           string
+	observeAddr        string
 	updateFilesSeconds int
 	tlsDisable         bool
 	tlsPrivateKeyPath  string
@@ -45,7 +47,7 @@ func newRunCmd() *cobra.Command {
 				exitErr(err.Error())
 			}
 
-			agent, err := agent.InitNewAgent(*config)
+			agent, err := agent.Init(*config)
 			if err != nil {
 				exitErr(err.Error())
 			}
@@ -66,8 +68,9 @@ func newRunCmd() *cobra.Command {
 
 	runCmd.Flags().StringVar(&cmdParams.logLevel, "log-level", "info", "set log level")
 
-	runCmd.Flags().StringVar(&cmdParams.addr, "addr", ":8080", "set listening address of the http server (e.g., [ip]:<port>)")
-	runCmd.Flags().StringVar(&cmdParams.monitoringAddr, "monitoring-addr", ":9191", "set listening address for the /health and /metrics (e.g., [ip]:<port>)")
+	runCmd.Flags().StringVar(&cmdParams.httpAddr, "http-addr", ":8181", "set listening address of the http server (e.g., [ip]:<port>)")
+	runCmd.Flags().StringVar(&cmdParams.grpcAddr, "grpc-addr", ":8282", "set listening address of the grpc server (e.g., [ip]:<port>)")
+	runCmd.Flags().StringVar(&cmdParams.observeAddr, "monitoring-addr", ":9191", "set listening address for the /health and /metrics (e.g., [ip]:<port>)")
 	runCmd.Flags().BoolVar(&cmdParams.logCheckResults, "log-check-results", false, "log info about check requests results (default false)")
 	runCmd.Flags().IntVar(&cmdParams.updateFilesSeconds, "update-files-seconds", 0, "set policy/data file updating period (seconds) (default 0 - do not update)")
 	runCmd.Flags().BoolVar(&cmdParams.tlsDisable, "tls-disable", false, "disables TLS completely")
@@ -84,12 +87,12 @@ Flags:
 
 const usageArgs = "arguments must by: [policy-file.yaml] [data-file.json (optional)]"
 
-func prepareConfig(args []string, params runCmdParams) (*agent.Config, error) {
+func prepareConfig(args []string, params runCmdParams) (*config.Config, error) {
 	if len(args) == 0 || len(args) > 2 {
 		return nil, errors.New(usageArgs)
 	}
 
-	config := agent.DefaultConfig()
+	config := config.DefaultConfig()
 
 	// load files
 	for _, file := range args {
@@ -111,8 +114,9 @@ func prepareConfig(args []string, params runCmdParams) (*agent.Config, error) {
 	config.LogLevel = parsedLogLevel
 
 	// other params
-	config.Addr = params.addr
-	config.MonitoringAddr = params.monitoringAddr
+	config.HttpAddr = params.httpAddr
+	config.GrpcAddr = params.grpcAddr
+	config.MonitoringAddr = params.observeAddr
 	config.LogCheckResults = params.logCheckResults
 	config.UpdateFilesSeconds = params.updateFilesSeconds
 
