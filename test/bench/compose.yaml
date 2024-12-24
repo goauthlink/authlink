@@ -1,15 +1,35 @@
 services:
 
-  arqagent:
-    image: ghcr.io/auth-request-agent/agent:local
+  proxy:
+    image: envoyproxy/envoy:v1.32-latest
+    volumes:
+      - type: bind
+        source: ./envoy.yaml
+        target: /etc/envoy.yaml
+        read_only: true
+    ports:
+      - 8081:8081
+      - 9901:9901
+    command:
+      - "--concurrency 1"
+      - "--log-level debug" 
+      - "--config-path /etc/envoy.yaml"
+    depends_on:
+      - agent
+      - backend
+
+  agent:
+    build:
+      context: ./../..
+      dockerfile: Dockerfile.agent
     command:
       - 'run'
-      - '--addr=:8282'
       - '--tls-disable'
       - '--log-check-results'
       - '/policy.yaml'
       - '/data.json'
     ports:
+      - 8181:8181
       - 8282:8282
     volumes:
       - type: bind
@@ -21,3 +41,18 @@ services:
       - type: bind
         source: ./jwt.key
         target: /jwt.key
+
+  backend:
+    image: jmalloc/echo-server
+    ports:
+      - 8080:8080
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prom:/etc/prometheus/
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+    ports:
+      - 9090:9090
+    restart: unless-stopped

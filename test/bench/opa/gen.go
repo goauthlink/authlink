@@ -20,9 +20,9 @@ default match_policy := false
 default allow_default := false
 default allow := false
 
-x_source := input.http_request.headers["x-source"]
-x_path := input.http_request.headers["x-path"]
-x_method := input.http_request.headers["x-method"]
+x_source := input.attributes.request.http.headers["x-source"]
+x_path := input.attributes.request.http.path
+x_method := input.attributes.request.http.method
 
 jwt_token := input.http_request.headers["jwt_token"]
 jwt_x_source := concat(":", ["jwt", claims.name])

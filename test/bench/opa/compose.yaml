@@ -1,16 +1,42 @@
 services:
+
+  proxy:
+    image: envoyproxy/envoy:v1.32-latest
+    volumes:
+      - type: bind
+        source: ./envoy.yaml
+        target: /etc/envoy.yaml
+        read_only: true
+    ports:
+      - 8081:8081
+      - 9901:9901
+    command:
+      - "--concurrency 1"
+      - "--log-level debug" 
+      - "--config-path /etc/envoy.yaml"
+    depends_on:
+      - opa
+      - backend
+
   opa:
-    image: opa-test:0.69.0
+    image: opa-test 
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+         TARGETOS: linux
+         TARGETARCH: arm64 
     command:
       - 'run'
       - '--server'
-      - '--addr=:8181'
+      - '--addr=localhost:8181'
       - '--log-level=info'
       - '--config-file=/config.yaml'
       - '--bundle'
       - '/bundle.tar.gz'
     ports:
       - 8181:8181
+      - 9191:9191
     volumes:
       - type: bind
         source: ./config.yaml
@@ -18,3 +44,18 @@ services:
       - type: bind
         source: ./bundle.tar.gz
         target: /bundle.tar.gz
+
+  backend:
+    image: jmalloc/echo-server
+    ports:
+      - 8080:8080
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prom:/etc/prometheus/
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+    ports:
+      - 9090:9090
+    restart: unless-stopped
