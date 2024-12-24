@@ -3,19 +3,17 @@ import { check } from 'k6';
 
 export const options = {
     vus: 10,
-    duration: '4s',
+    duration: '30s',
 };
 
 export default function () {
 
     const reqJsonPath1 = {
-        method: 'POST',
-        url: 'http://localhost:8282/check',
+        method: 'GET',
+        url: 'http://localhost:8081/jwt_9/9',
         body: null,
         params: {
             headers: {
-                'x-path': '/jwt_9/9',
-                'x-method': 'GET',
                 'x-source': 'client1',
                 'token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6ImNsaWVudDEiLCJpYXQiOjE1MTYyMzkwMjJ9.OiqoxQsfKfCLjGuud53bHbR3la7eO-iNW7MMeMqYZQs'
             },
@@ -23,26 +21,22 @@ export default function () {
     };
 
     const reqJsonPath2 = {
-        method: 'POST',
-        url: 'http://localhost:8282/check',
+        method: 'GET',
+        url: 'http://localhost:8081/regex_8/1/sub_5/2',
         body: null,
         params: {
             headers: {
-                'x-path': '/regex_8/1/sub_5/2',
-                'x-method': 'GET',
                 'x-source': 'client2',
             },
         },
     };
 
     const reqJsonPath3 = {
-        method: 'POST',
-        url: 'http://localhost:8282/check',
+        method: 'GET',
+        url: 'http://localhost:8081/json_1/1',
         body: null,
         params: {
             headers: {
-                'x-path': '/json_1/1',
-                'x-method': 'GET',
                 'x-source': 'client2',
             },
         },
