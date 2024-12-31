@@ -2,7 +2,7 @@
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
-package httpsrv
+package agent
 
 import (
 	"context"
@@ -15,92 +15,59 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auth-request-agent/agent/agent/observe"
 	"github.com/auth-request-agent/agent/pkg/logging"
-	"github.com/auth-request-agent/agent/pkg/policy"
+	sdk_policy "github.com/auth-request-agent/agent/sdk/policy"
 )
 
-type Server struct {
-	httpserver  *http.Server
-	cert        *tls.Certificate
-	logger      *slog.Logger
-	checkLogger *observe.CheckLogger
-	checker     *policy.Checker
-	metrics     observe.Metrics
+type HttpServer struct {
+	httpserver *http.Server
+	cert       *tls.Certificate
+	logger     *slog.Logger
+	policy     *Policy
 }
 
-type ServerOpt func(*Server)
-
-func WithCheckLogger(checkLogger *observe.CheckLogger) ServerOpt {
-	return func(s *Server) {
-		s.checkLogger = checkLogger
-	}
-}
+type ServerOpt func(*HttpServer)
 
 func WithCert(cert *tls.Certificate) ServerOpt {
-	return func(s *Server) {
+	return func(s *HttpServer) {
 		s.cert = cert
 	}
 }
 
 func WithLogger(logger *slog.Logger) ServerOpt {
-	return func(s *Server) {
+	return func(s *HttpServer) {
 		s.logger = logger
 	}
 }
 
-func WithChecker(checker *policy.Checker) ServerOpt {
-	return func(s *Server) {
-		s.checker = checker
-	}
-}
-
-func WithMetrics(metrics observe.Metrics) ServerOpt {
-	return func(s *Server) {
-		s.metrics = metrics
-	}
-}
-
-func New(addr string, opts ...ServerOpt) (*Server, error) {
-	httpSrv := &Server{
+func NewHttpServer(addr string, policy *Policy, opts ...ServerOpt) (*HttpServer, error) {
+	httpSrv := &HttpServer{
 		httpserver: &http.Server{
 			Addr: addr,
 		},
+		policy: policy,
 	}
 
 	for _, o := range opts {
 		o(httpSrv)
 	}
 
-	if httpSrv.checkLogger == nil {
-		httpSrv.checkLogger = observe.NewNullCheckLogger()
-	}
-
 	if httpSrv.logger == nil {
 		httpSrv.logger = logging.NewNullLogger()
 	}
 
-	if httpSrv.metrics == nil {
-		httpSrv.metrics = observe.NewNullMetrics()
-	}
-
-	if httpSrv.checker == nil {
+	if httpSrv.policy == nil {
 		return nil, errors.New("policy checker are not configured for http server")
 	}
 
 	router := http.NewServeMux()
-	router.Handle("POST /check", routerPostCheckHandler(
-		httpSrv.checker,
-		httpSrv.checkLogger,
-		httpSrv.logger,
-		httpSrv.metrics,
-	))
+	router.Handle("POST /check", routerPostCheckHandler(httpSrv.policy, httpSrv.logger))
 	httpSrv.httpserver.Handler = router
 
 	return httpSrv, nil
 }
 
-func (srv *Server) Serve() error {
+func (srv *HttpServer) Start(_ context.Context) error {
 	var listener net.Listener
 	var err error
 
@@ -126,7 +93,7 @@ func (srv *Server) Serve() error {
 	return nil
 }
 
-func (httpServer *Server) Shutdown(ctx context.Context) error {
+func (httpServer *HttpServer) Shutdown(ctx context.Context) error {
 	ctxd, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
@@ -140,17 +107,9 @@ func (httpServer *Server) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func routerPostCheckHandler(checker *policy.Checker, checkLogger *observe.CheckLogger, logger *slog.Logger, metrics observe.Metrics) http.Handler {
+func routerPostCheckHandler(policy *Policy, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		defer func() {
-			finish := time.Since(start)
-			metrics.CheckRqDurationObserve(context.Background(), finish.Milliseconds())
-			metrics.CheckRqTotalInc(context.Background())
-		}()
-
-		in := policy.CheckInput{
+		in := sdk_policy.CheckInput{
 			Uri:     r.Header.Get("x-path"), // todo: move to settings
 			Method:  strings.ToUpper(r.Header.Get("x-method")),
 			Headers: map[string]string{},
@@ -160,17 +119,12 @@ func routerPostCheckHandler(checker *policy.Checker, checkLogger *observe.CheckL
 			in.Headers[strings.ToLower(key)] = strings.Join(headerVal, ",")
 		}
 
-		// todo: allow_on_err
-
-		result, err := checker.Check(in)
+		result, err := policy.Check(context.Background(), in)
 		if err != nil {
-			metrics.CheckRqFailedInc(context.Background())
-			logger.Error(fmt.Sprintf("http check failed: %s", err.Error()))
+			logger.Error(fmt.Sprintf("http check handler: %s", err.Error()))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-
-		checkLogger.Log(in, *result)
 
 		if !result.Allow {
 			w.WriteHeader(http.StatusForbidden)

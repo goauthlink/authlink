@@ -1,0 +1,7 @@
+replicas: 3
+image:
+  repository: ghcr.io/auth-request-agent/agent
+  crdRepository: openpolicyagent/gatekeeper-crds
+  release: v0.6.0
+  pullPolicy: IfNotPresent
+  pullSecrets: []

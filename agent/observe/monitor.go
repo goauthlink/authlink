@@ -25,7 +25,7 @@ func WithLogger(logger *slog.Logger) ServerOpt {
 
 func NewServer(addr string, opts ...ServerOpt) *Server {
 	router := http.NewServeMux()
-	router.Handle("GET /stats/prometheus", promhttp.Handler())
+	router.Handle("GET /metrics", promhttp.Handler())
 	router.Handle("GET /health", routerGetHealtzHandler())
 
 	monitoringSrv := &Server{
@@ -48,7 +48,7 @@ func routerGetHealtzHandler() http.Handler {
 	})
 }
 
-func (monitorSrv *Server) Serve() error {
+func (monitorSrv *Server) Start(_ context.Context) error {
 	err := monitorSrv.srv.ListenAndServe()
 	monitorSrv.logger.Info(fmt.Sprintf("monitor server is starting on %s", monitorSrv.srv.Addr))
 	if err != nil && err != http.ErrServerClosed {

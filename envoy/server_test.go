@@ -1,11 +1,12 @@
-package grpcsrv
+package envoy
 
 import (
 	"context"
 	"encoding/json"
 	"testing"
 
-	"github.com/auth-request-agent/agent/pkg/policy"
+	"github.com/auth-request-agent/agent/agent"
+	"github.com/auth-request-agent/agent/sdk/policy"
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,8 @@ func newTestServer(t *testing.T, pol string) *Server {
 	checker := policy.NewChecker()
 	require.NoError(t, checker.SetPolicy([]byte(pol)))
 
-	srv, err := New(":0", WithChecker(checker))
+	policy := agent.NewPolicy(checker, nil, nil)
+	srv, err := New(":0", policy)
 	require.NoError(t, err)
 
 	return srv

@@ -4,4 +4,7 @@
 
 package pkg
 
-const Version = "0.5.0"
+const (
+	AgentImageName = "ghcr.io/auth-request-agent/agent"
+	Version        = "0.6.0"
+)

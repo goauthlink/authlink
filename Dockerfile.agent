@@ -4,13 +4,13 @@
 
 FROM alpine:3.20 
 
-WORKDIR /auth-request-agent
+WORKDIR /authz-agent
 
 ARG TARGETOS
 ARG TARGETARCH
 
-COPY dist/agent_${TARGETOS}_${TARGETARCH} /auth-request-agent/agent
+COPY dist/agent_${TARGETOS}_${TARGETARCH} /authz-agent/agent
 
-ENV PATH=${PATH}:/auth-request-agent
+ENV PATH=${PATH}:/authz-agent
 
 ENTRYPOINT ["agent"]

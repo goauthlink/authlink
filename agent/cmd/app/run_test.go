@@ -18,7 +18,6 @@ func createTestCmdParams() runCmdParams {
 	return runCmdParams{
 		logLevel:   "info",
 		httpAddr:   ":8181",
-		grpcAddr:   ":8282",
 		tlsDisable: true,
 	}
 }

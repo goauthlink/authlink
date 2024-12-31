@@ -183,8 +183,6 @@ func (c *Checker) isAllowed(allow preparedAllow, cn *preparedCn) (bool, error) {
 				}
 			}
 
-			// fmt.Printf("clients: %s \n", clients)
-
 			c.dataCache[allowJsonPath.Jsonpath] = clients
 		}
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/auth-request-agent/agent/pkg/policy"
+	"github.com/auth-request-agent/agent/sdk/policy"
 	"gopkg.in/yaml.v3"
 )
 

@@ -7,7 +7,7 @@ package main
 import (
 	"os"
 
-	"github.com/auth-request-agent/agent/cmd/agent/app"
+	"github.com/auth-request-agent/agent/agent/cmd/app"
 )
 
 func main() {
