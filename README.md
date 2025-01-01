@@ -7,7 +7,8 @@ AuthLink is an open-source simple to configure, high-performance authorization s
 
 ## Getting started 
 
-See example of [nginx integration](./examples/nginx).
+- See example of [nginx integration](./examples/nginx).
+- See example of [envoy integration](./examples/envoy).
 
 ### Run as a container:
 

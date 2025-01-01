@@ -19,14 +19,14 @@ services:
       - backend
 
   agent:
-    image: ghcr.io/goauthlink/authlink:local
+    image: ghcr.io/goauthlink/envoy-agent:latest
     command: "run --log-check-results --tls-disable /policy.yaml"
     volumes:
       - type: bind
         source: ./agent/policy.yaml
         target: /policy.yaml
     ports:
-      - 9191:9191
+      - 8282:8282
 
   backend:
     image: jmalloc/echo-server

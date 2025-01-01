@@ -23,7 +23,7 @@ func NewEnvoyExtension() *EnvoyExtension {
 }
 
 func (r *EnvoyExtension) ConfigRunCmd(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&grpcAddr, "envoy-grpc-addr", ":9292", "set listening address of the envoy grpc server (e.g., [ip]:<port>)")
+	cmd.Flags().StringVar(&grpcAddr, "envoy-grpc-addr", ":8282", "set listening address of the envoy grpc server (e.g., [ip]:<port>)")
 }
 
 func (r *EnvoyExtension) Server(runArgs []string, agent *agent.Agent) (agent.Server, error) {

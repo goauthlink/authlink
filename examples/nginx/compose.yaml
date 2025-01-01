@@ -18,8 +18,8 @@ services:
       - backend
 
   agent:
-    image: ghcr.io/goauthlink/authlink:latest
-    command: run --addr :8090 --tls-disable /policy.yaml
+    image: ghcr.io/goauthlink/agent:latest
+    command: run --http-addr :8090 --tls-disable /policy.yaml
     volumes:
       - type: bind
         source: ./agent/policy.yaml
