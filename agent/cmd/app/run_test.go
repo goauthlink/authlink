@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
+// Copyright 2024 The AuthLink Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -8,8 +8,8 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/auth-request-agent/agent/test/testdata"
-	"github.com/auth-request-agent/agent/test/util"
+	"github.com/goauthlink/authlink/test/testdata"
+	"github.com/goauthlink/authlink/test/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +18,6 @@ func createTestCmdParams() runCmdParams {
 	return runCmdParams{
 		logLevel:   "info",
 		httpAddr:   ":8181",
-		grpcAddr:   ":8282",
 		tlsDisable: true,
 	}
 }

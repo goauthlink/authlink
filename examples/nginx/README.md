@@ -1,6 +1,6 @@
 # Overview 
 
-AuthRequestAgent adds the ability for Nginx to authorize HTTP requests based on access policies before proxying to the target service. There is no need to change the code of your service. Authorization works at the infrastructure level and does not depend on the programming languages used.
+AuthLink adds the ability for Nginx to authorize HTTP requests based on access policies before proxying to the target service. There is no need to change the code of your service. Authorization works at the infrastructure level and does not depend on the programming languages used.
 
 # How it works
 

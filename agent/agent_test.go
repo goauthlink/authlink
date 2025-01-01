@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
+// Copyright 2024 The AuthLink Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -12,9 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auth-request-agent/agent/agent/config"
-	"github.com/auth-request-agent/agent/test/testdata"
-	"github.com/auth-request-agent/agent/test/util"
+	"github.com/goauthlink/authlink/test/testdata"
+	"github.com/goauthlink/authlink/test/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,7 +48,7 @@ func Test_InitFiles(t *testing.T) {
 	rootDir, cleanFs := createFiles(t)
 	defer cleanFs()
 
-	config := config.DefaultConfig()
+	config := DefaultConfig()
 	config.LogLevel = slog.LevelError
 	config.DataFilePath = rootDir + "/data.json"
 	config.PolicyFilePath = rootDir + "/policy.yaml"
@@ -57,7 +56,7 @@ func Test_InitFiles(t *testing.T) {
 	agent, err := Init(config)
 	require.NoError(t, err)
 
-	checkerD := agent.checker.Data()
+	checkerD := agent.policy.Data()
 
 	assert.Equal(t, map[string]interface{}{"users": []interface{}{"user1", "user2"}}, checkerD)
 }
@@ -66,21 +65,21 @@ func Test_InitNoData(t *testing.T) {
 	rootDir, cleanFs := createFiles(t)
 	defer cleanFs()
 
-	config := config.DefaultConfig()
+	config := DefaultConfig()
 	config.LogLevel = slog.LevelError
 	config.PolicyFilePath = rootDir + "/policy.yaml"
 
 	agent, err := Init(config)
 	require.NoError(t, err)
 
-	assert.Equal(t, nil, agent.checker.Data())
+	assert.Equal(t, nil, agent.policy.Data())
 }
 
 func Test_TLSListening(t *testing.T) {
 	rootDir, cleanFs := createFiles(t)
 	defer cleanFs()
 
-	config := config.DefaultConfig()
+	config := DefaultConfig()
 	config.PolicyFilePath = rootDir + "/policy.yaml"
 
 	serverCert, err := tls.LoadX509KeyPair(rootDir+"/server.crt", rootDir+"/server.key")
@@ -126,7 +125,7 @@ func Test_UpdateFiles(t *testing.T) {
 	rootDir, cleanFs := createFiles(t)
 	defer cleanFs()
 
-	config := config.DefaultConfig()
+	config := DefaultConfig()
 	config.PolicyFilePath = rootDir + "/policy.yaml"
 	config.LogLevel = slog.LevelError
 	config.UpdateFilesSeconds = 1
@@ -140,7 +139,7 @@ func Test_UpdateFiles(t *testing.T) {
 	}()
 	time.Sleep(time.Second * 1)
 
-	assert.Equal(t, []byte(testPolicy), agent.checker.Policy())
+	assert.Equal(t, []byte(testPolicy), agent.policy.Policy())
 
 	newPolicy := `cn:
   - header: "x-source2"
@@ -152,7 +151,7 @@ policies:
 
 	time.Sleep(time.Second * 3)
 
-	assert.Equal(t, []byte(newPolicy), agent.checker.Policy())
+	assert.Equal(t, []byte(newPolicy), agent.policy.Policy())
 
 	stop <- struct{}{}
 

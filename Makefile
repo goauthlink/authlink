@@ -1,14 +1,15 @@
-# Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
+# Copyright 2024 The AuthLink Authors.  All rights reserved.
 # Use of this source code is governed by an Apache2
 # license that can be found in the LICENSE file.
 
-VERSION ?= $(go run ./cmd/agent/main.go version) 
-AGENT_IMAGE_NAME ?= ghcr.io/auth-request-agent/agent
-
+VERSION ?= $(shell go run ./agent/cmd/main.go version) 
+REGISTRY_REPOSITORY ?= ghcr.io/goauthlink
 RELEASE_DIR = ./dist
-GOARCH ?= $(shell go env GOARCH)
-GOOS ?= $(shell go env GOOS)
-AGENT_BIN := agent_$(GOOS)_$(GOARCH)
+TARGET_OS ?= $(shell go env GOOS)
+TARGET_ARCH ?= $(shell go env GOARCH)
+OUTPUT_TYPE ?= docker
+PLATFORM ?= $(TARGET_OS)/$(TARGET_ARCH)
+BIN_PLATFORM ?= $(TARGET_OS)_$(TARGET_ARCH)
 
 lint:
 	golangci-lint run
@@ -16,23 +17,39 @@ lint:
 tests:
 	go test ./... -v
 
-clean-bin:
-	rm -rf ${RELEASE_DIR}/*
+docker-buildx-builder:
+	if ! docker buildx ls | grep -q container-builder; then\
+		docker buildx create --name container-builder --use --bootstrap;\
+	fi
+
+define agent-build-bin
+	mkdir -p $(RELEASE_DIR)
+	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build -o $(2)-$(BIN_PLATFORM) $(1) 
+	chmod +x $(2)-$(BIN_PLATFORM)
+	mv $(2)-$(BIN_PLATFORM) $(RELEASE_DIR)/
+	cd $(RELEASE_DIR)/ \
+		&& tar -zcvf $(2)-$(BIN_PLATFORM).tar.gz $(2)-$(BIN_PLATFORM) \
+		&& shasum -a 256 $(2)-$(BIN_PLATFORM).tar.gz > $(2)-$(BIN_PLATFORM).tar.gz.sha256
+endef
+
+define agent-build-image
+	docker buildx build \
+		--output=type=${OUTPUT_TYPE} \
+		--build-arg BIN=$(2) \
+		--platform="$(PLATFORM)" \
+		--tag ${REGISTRY_REPOSITORY}/$(2):${VERSION} \
+		--tag ${REGISTRY_REPOSITORY}/$(2):latest \
+		-f agent/docker/Dockerfile .
+endef
 
 agent-build-bin:
-	mkdir -p $(RELEASE_DIR)
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(AGENT_BIN) cmd/agent/main.go 
-	chmod +x $(AGENT_BIN)
-	mv $(AGENT_BIN) $(RELEASE_DIR)/
-	cd $(RELEASE_DIR)/  && tar -zcvf $(AGENT_BIN).tar.gz $(AGENT_BIN) && shasum -a 256 $(AGENT_BIN).tar.gz > $(AGENT_BIN).tar.gz.sha256
+	$(call agent-build-bin,agent/cmd/main.go,agent)
 
-agent-build-image:
-	docker build --build-arg="TARGETOS=${GOOS}" --build-arg="TARGETARCH=${GOARCH}" -f Dockerfile.agent -t ${AGENT_IMAGE_NAME}:${VERSION} .
+envoy-agent-build-bin:
+	$(call agent-build-bin,envoy/cmd/main.go,envoy-agent)
 
-agent-publish-image:
-	docker push ${AGENT_IMAGE_NAME}:${VERSION}
-	docker tag ${AGENT_IMAGE_NAME}:${VERSION} ${AGENT_IMAGE_NAME}:latest
-	docker push ${AGENT_IMAGE_NAME}:latest
+agent-build-image: docker-buildx-builder
+	$(call agent-build-image,envoy/cmd/main.go,agent)
 
-agent-test-image:
-	docker run -it --rm ${AGENT_IMAGE_NAME}:${VERSION} version 
+envoy-agent-build-image: docker-buildx-builder
+	$(call agent-build-image,envoy/cmd/main.go,envoy-agent)

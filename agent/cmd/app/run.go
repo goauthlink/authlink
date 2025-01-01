@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
+// Copyright 2024 The AuthLink Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -11,18 +11,21 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/auth-request-agent/agent/agent"
-	"github.com/auth-request-agent/agent/agent/config"
-	"github.com/auth-request-agent/agent/pkg/cmd"
-	"github.com/auth-request-agent/agent/pkg/logging"
+	"github.com/goauthlink/authlink/agent"
+	"github.com/goauthlink/authlink/pkg/cmd"
+	"github.com/goauthlink/authlink/pkg/logging"
 	"github.com/spf13/cobra"
 )
+
+type RunExtension interface {
+	ConfigRunCmd(cmd *cobra.Command)
+	Server(runArgs []string, agent *agent.Agent) (agent.Server, error)
+}
 
 type runCmdParams struct {
 	logLevel           string
 	logCheckResults    bool
 	httpAddr           string
-	grpcAddr           string
 	observeAddr        string
 	updateFilesSeconds int
 	tlsDisable         bool
@@ -35,9 +38,8 @@ func exitErr(msg string) {
 	os.Exit(1)
 }
 
-func newRunCmd() *cobra.Command {
+func newRunCmd(extensions ...RunExtension) *cobra.Command {
 	cmdParams := runCmdParams{}
-
 	runCmd := &cobra.Command{
 		Use:   "run",
 		Short: "Start policy agent",
@@ -50,6 +52,14 @@ func newRunCmd() *cobra.Command {
 			agent, err := agent.Init(*config)
 			if err != nil {
 				exitErr(err.Error())
+			}
+
+			for _, runExt := range extensions {
+				server, err := runExt.Server(args, agent)
+				if err != nil {
+					exitErr(err.Error())
+				}
+				agent.AddServer(server)
 			}
 
 			stop := make(chan struct{}, 1)
@@ -69,7 +79,6 @@ func newRunCmd() *cobra.Command {
 	runCmd.Flags().StringVar(&cmdParams.logLevel, "log-level", "info", "set log level")
 
 	runCmd.Flags().StringVar(&cmdParams.httpAddr, "http-addr", ":8181", "set listening address of the http server (e.g., [ip]:<port>)")
-	runCmd.Flags().StringVar(&cmdParams.grpcAddr, "grpc-addr", ":8282", "set listening address of the grpc server (e.g., [ip]:<port>)")
 	runCmd.Flags().StringVar(&cmdParams.observeAddr, "monitoring-addr", ":9191", "set listening address for the /health and /metrics (e.g., [ip]:<port>)")
 	runCmd.Flags().BoolVar(&cmdParams.logCheckResults, "log-check-results", false, "log info about check requests results (default false)")
 	runCmd.Flags().IntVar(&cmdParams.updateFilesSeconds, "update-files-seconds", 0, "set policy/data file updating period (seconds) (default 0 - do not update)")
@@ -82,17 +91,21 @@ func newRunCmd() *cobra.Command {
 Flags:
 {{.LocalFlags.FlagUsages | trimRightSpace}}`)
 
+	for _, runExt := range extensions {
+		runExt.ConfigRunCmd(runCmd)
+	}
+
 	return runCmd
 }
 
 const usageArgs = "arguments must by: [policy-file.yaml] [data-file.json (optional)]"
 
-func prepareConfig(args []string, params runCmdParams) (*config.Config, error) {
+func prepareConfig(args []string, params runCmdParams) (*agent.Config, error) {
 	if len(args) == 0 || len(args) > 2 {
 		return nil, errors.New(usageArgs)
 	}
 
-	config := config.DefaultConfig()
+	config := agent.DefaultConfig()
 
 	// load files
 	for _, file := range args {
@@ -115,7 +128,6 @@ func prepareConfig(args []string, params runCmdParams) (*config.Config, error) {
 
 	// other params
 	config.HttpAddr = params.httpAddr
-	config.GrpcAddr = params.grpcAddr
 	config.MonitoringAddr = params.observeAddr
 	config.LogCheckResults = params.logCheckResults
 	config.UpdateFilesSeconds = params.updateFilesSeconds

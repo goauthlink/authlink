@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
+// Copyright 2024 The AuthLink Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -12,27 +12,24 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auth-request-agent/agent/agent/config"
-	"github.com/auth-request-agent/agent/agent/grpcsrv"
-	"github.com/auth-request-agent/agent/agent/httpsrv"
-	"github.com/auth-request-agent/agent/agent/observe"
-	"github.com/auth-request-agent/agent/pkg/policy"
+	"github.com/goauthlink/authlink/agent/observe"
+	"github.com/goauthlink/authlink/sdk/policy"
 )
 
-type server interface {
-	Serve() error
+type Server interface {
+	Start(ctx context.Context) error
 	Shutdown(ctx context.Context) error
 }
 
 type Agent struct {
-	servers []server
+	servers []Server
 	logger  *slog.Logger
-	checker *policy.Checker
-	config  config.Config
+	policy  *Policy
+	config  Config
 	done    chan struct{}
 }
 
-func Init(config config.Config) (*Agent, error) {
+func Init(config Config) (*Agent, error) {
 	agent := &Agent{
 		logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 			Level: config.LogLevel,
@@ -43,10 +40,11 @@ func Init(config config.Config) (*Agent, error) {
 
 	agent.logger.Info("start initing")
 
-	agent.checker = policy.NewChecker()
-
-	if err := agent.updateFiles(); err != nil {
-		return nil, err
+	var checkLogger *CheckLogger
+	if config.LogCheckResults {
+		checkLogger = NewCheckLogger(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		})))
 	}
 
 	metrics, err := observe.NewMetrics()
@@ -54,38 +52,23 @@ func Init(config config.Config) (*Agent, error) {
 		return nil, err
 	}
 
-	httpServerOptions := []httpsrv.ServerOpt{
-		httpsrv.WithLogger(agent.logger),
-		httpsrv.WithChecker(agent.checker),
-		httpsrv.WithMetrics(metrics),
+	agent.policy = NewPolicy(policy.NewChecker(), checkLogger, metrics)
+
+	if err := agent.updateFiles(); err != nil {
+		return nil, err
 	}
 
-	grpcServerOptions := []grpcsrv.ServerOpt{
-		grpcsrv.WithLogger(agent.logger),
-		grpcsrv.WithChecker(agent.checker),
-		grpcsrv.WithMetrics(metrics),
+	httpServerOptions := []ServerOpt{
+		WithLogger(agent.logger),
 	}
 
 	if config.TLSCert != nil {
-		httpServerOptions = append(httpServerOptions, httpsrv.WithCert(config.TLSCert))
+		httpServerOptions = append(httpServerOptions, WithCert(config.TLSCert))
 	}
 
-	if config.LogCheckResults {
-		checkLogger := observe.NewCheckLogger(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		})))
-		httpServerOptions = append(httpServerOptions, httpsrv.WithCheckLogger(checkLogger))
-		grpcServerOptions = append(grpcServerOptions, grpcsrv.WithCheckLogger(checkLogger))
-	}
-
-	httpServer, err := httpsrv.New(config.HttpAddr, httpServerOptions...)
+	httpServer, err := NewHttpServer(config.HttpAddr, agent.policy, httpServerOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("init http server: %w", err)
-	}
-
-	grpcServer, err := grpcsrv.New(config.GrpcAddr, grpcServerOptions...)
-	if err != nil {
-		return nil, fmt.Errorf("init grpc server: %w", err)
 	}
 
 	observeServerOpions := []observe.ServerOpt{
@@ -93,15 +76,18 @@ func Init(config config.Config) (*Agent, error) {
 	}
 	observeServer := observe.NewServer(config.MonitoringAddr, observeServerOpions...)
 
-	agent.servers = []server{
+	agent.servers = []Server{
 		httpServer,
-		grpcServer,
 		observeServer,
 	}
 
 	agent.logger.Info("agent inited")
 
 	return agent, nil
+}
+
+func (a *Agent) AddServer(server Server) {
+	a.servers = append(a.servers, server)
 }
 
 func (a *Agent) Run(stop chan struct{}) error {
@@ -126,9 +112,9 @@ func (a *Agent) Run(stop chan struct{}) error {
 
 	for _, srv := range a.servers {
 		wg.Add(1)
-		go func(srv server) {
+		go func(srv Server) {
 			defer wg.Done()
-			errchan <- srv.Serve()
+			errchan <- srv.Start(ctx)
 		}(srv)
 	}
 
@@ -173,7 +159,7 @@ func (a *Agent) updateFiles() error {
 	if err != nil {
 		return fmt.Errorf("policy file updating failed: %w", err)
 	}
-	if err := a.checker.SetPolicy(policyData); err != nil {
+	if err := a.policy.SetPolicy(policyData); err != nil {
 		return fmt.Errorf("policy file updating failed: %w", err)
 	}
 	a.logger.Info("policy file updated")
@@ -187,7 +173,7 @@ func (a *Agent) updateFiles() error {
 		return fmt.Errorf("data file updating failed: %s", err)
 	}
 
-	if err := a.checker.SetData(data); err != nil {
+	if err := a.policy.SetData(data); err != nil {
 		return fmt.Errorf("loading data.json: %w", err)
 	}
 
@@ -205,4 +191,12 @@ func (agent *Agent) shutdown(cancel context.CancelFunc, ctx context.Context) {
 
 func (a *Agent) WaitUntilCompletion() {
 	<-a.done
+}
+
+func (a *Agent) Logger() *slog.Logger {
+	return a.logger
+}
+
+func (a *Agent) Policy() *Policy {
+	return a.policy
 }

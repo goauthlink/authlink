@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
+// Copyright 2024 The AuthLink Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -182,8 +182,6 @@ func (c *Checker) isAllowed(allow preparedAllow, cn *preparedCn) (bool, error) {
 					clients = append(clients, val)
 				}
 			}
-
-			// fmt.Printf("clients: %s \n", clients)
 
 			c.dataCache[allowJsonPath.Jsonpath] = clients
 		}

@@ -1,8 +1,8 @@
-// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
+// Copyright 2024 The AuthLink Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
-package config
+package agent
 
 import (
 	"crypto/tls"
@@ -12,7 +12,6 @@ import (
 
 type Config struct {
 	HttpAddr           string
-	GrpcAddr           string
 	MonitoringAddr     string
 	LogLevel           slog.Level
 	LogCheckResults    bool
@@ -25,7 +24,6 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		HttpAddr:           ":8181",
-		GrpcAddr:           ":8282",
 		MonitoringAddr:     ":9191",
 		LogLevel:           slog.LevelInfo,
 		LogCheckResults:    false,

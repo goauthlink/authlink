@@ -1,8 +1,8 @@
-// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
+// Copyright 2024 The AuthLink Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
-package httpsrv
+package agent
 
 import (
 	"bytes"
@@ -11,36 +11,35 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/auth-request-agent/agent/agent/config"
-	"github.com/auth-request-agent/agent/pkg/policy"
+	"github.com/goauthlink/authlink/sdk/policy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func initTestHttpServer(t *testing.T, pol *string, cfg *config.Config, opts ...ServerOpt) (*Server, *bytes.Buffer) {
-	var checker *policy.Checker
-	if pol != nil {
-		checker = policy.NewChecker()
-		require.NoError(t, checker.SetPolicy([]byte(*pol)))
-	}
-
+func initTestHttpServer(t *testing.T, pol *string, cfg *Config, opts ...ServerOpt) (*HttpServer, *bytes.Buffer) {
 	buf := &bytes.Buffer{}
 	logger := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
 
-	fCfg := config.DefaultConfig()
+	fCfg := DefaultConfig()
 	if cfg != nil {
 		fCfg = *cfg
 	}
 
 	srvOptions := []ServerOpt{
 		WithLogger(logger),
-		WithChecker(checker),
 	}
 	srvOptions = append(srvOptions, opts...)
 
-	httpServer, err := New(fCfg.HttpAddr, srvOptions...)
+	var checker *policy.Checker
+	if pol != nil {
+		checker = policy.NewChecker()
+		require.NoError(t, checker.SetPolicy([]byte(*pol)))
+	}
+	policy := NewPolicy(checker, nil, nil)
+
+	httpServer, err := NewHttpServer(fCfg.HttpAddr, policy, srvOptions...)
 	require.NoError(t, err)
 
 	return httpServer, buf

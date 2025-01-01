@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
+// Copyright 2024 The AuthLink Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -39,7 +39,7 @@ func NewMetrics() (Metrics, error) {
 
 	provider := metric.NewMeterProvider(metric.WithReader(exporter))
 
-	meter := provider.Meter("auth-request-agent", api.WithInstrumentationAttributes())
+	meter := provider.Meter("goauthlink", api.WithInstrumentationAttributes())
 
 	// metrics
 	checkRqTotalCounter, err := meter.Int64Counter(checkRqTotalName,
