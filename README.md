@@ -1,9 +1,9 @@
-# Auth Request Agent (arqagent) 
+# AuthLink
 
-![GitHub Actions Workflow Status](https://github.com/auth-request-agent/agent/workflows/PR%20Check/badge.svg?branch=master)
-[![Go Report Card](https://goreportcard.com/badge/github.com/auth-request-agent/agent)](https://goreportcard.com/report/github.com/auth-request-agent/agent)
+![GitHub Actions Workflow Status](https://github.com/goauthlink/authlink/workflows/PR%20Check/badge.svg?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/goauthauthlink/authlink)](https://goreportcard.com/report/github.com/goauthlink/authlink)
 
-Auth Request Agent is an open-source simple to configure, high-performance authorization service focused on working with HTTP requests. Integrates into the infrastructure layer of your project and does not require changes to your applications. Configured in YAML format (without new declarative languages) so that your team can easily get started with it.
+AuthLink is an open-source simple to configure, high-performance authorization service focused on working with HTTP requests. Integrates into the infrastructure layer of your project and does not require changes to your applications. Configured in YAML format (without new declarative languages) so that your team can easily get started with it.
 
 ## Getting started 
 
@@ -11,16 +11,16 @@ See example of [nginx integration](./examples/nginx).
 
 ### Run as a container:
 
-```docker run -v ./policy.yaml:/policy.yaml -v ./data.json:/data.json -p 8080:8080 ghcr.io/auth-request-agent/agent:latest run /policy.yaml /data.json```
+```docker run -v ./policy.yaml:/policy.yaml -v ./data.json:/data.json -p 8080:8080 ghcr.io/goauthlink/agent:latest run /policy.yaml /data.json```
 
 You can see the detailed flags of the `run` command [bellow](#run-options).
 
 ### Static binaries 
 
-Download from [releases on GitHub (expand "Assets")](https://github.com/auth-request-agent/agent/releases) archive for you OS and ARCH (supported linux and macos)
+Download from [releases on GitHub (expand "Assets")](https://github.com/goauthlink/agent/releases) archive for you OS and ARCH (supported linux and macos)
 
 ```sh
-curl -L https://github.com/auth-request-agent/agent/releases/download/v{version}/agent_{os}_{arch}.tar.gz > agent.tar.gz 
+curl -L https://github.com/goauthlink/authlink/releases/download/v{version}/agent_{os}_{arch}.tar.gz > agent.tar.gz 
 tar -xvf agent.tar.gz
 mv agent_{os}_{arch} /usr/local/bin/agent
 ```
@@ -197,7 +197,6 @@ Usage:
   main run [flags] [policy-file.yaml] [data-file.json (optional)]
 
 Flags:
-      --grpc-addr string           set listening address of the grpc server (e.g., [ip]:<port>) (default ":8282")
       --http-addr string           set listening address of the http server (e.g., [ip]:<port>) (default ":8181")
       --log-check-results          log info about check requests results (default false)
       --log-level string           set log level (default "info")
@@ -224,7 +223,7 @@ global:
   scrape_interval: 10s
 
 scrape_configs:
-  - job_name: auth-request-agent 
+  - job_name: goauthlink 
     metrics_path: "/stats/prometheus"
     static_configs:
       - targets: ['localhost:9191']
@@ -284,4 +283,4 @@ Arguments description:
 ## How to contribute
 
 - make a pull request to the latest release branch (release-*)
-- [create issue](https://github.com/auth-request-agent/agent/issues/new)
+- [create issue](https://github.com/goauthlink/authlink/issues/new)

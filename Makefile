@@ -17,12 +17,6 @@ lint:
 tests:
 	go test ./... -v
 
-clean-bin:
-	rm -rf ${RELEASE_DIR}/*
-
-version:
-	echo $(VERSION)
-
 docker-buildx-builder:
 	if ! docker buildx ls | grep -q container-builder; then\
 		docker buildx create --name container-builder --use --bootstrap;\
@@ -31,6 +25,7 @@ docker-buildx-builder:
 define agent-build-bin
 	mkdir -p $(RELEASE_DIR)
 	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build -o $(2)-$(BIN_PLATFORM) $(1) 
+	chmod +x $(2)-$(BIN_PLATFORM)
 	mv $(2)-$(BIN_PLATFORM) $(RELEASE_DIR)/
 	cd $(RELEASE_DIR)/ \
 		&& tar -zcvf $(2)-$(BIN_PLATFORM).tar.gz $(2)-$(BIN_PLATFORM) \
@@ -40,10 +35,11 @@ endef
 define agent-build-image
 	docker buildx build \
 		--output=type=${OUTPUT_TYPE} \
-		--build-arg AGENT_BIN=$(2)-$(BIN_PLATFORM) \
+		--build-arg BIN=$(2) \
 		--platform="$(PLATFORM)" \
-		-f agent/docker/Dockerfile \
-		-t ${REGISTRY_REPOSITORY}/$(2):${VERSION} .
+		--tag ${REGISTRY_REPOSITORY}/$(2):${VERSION} \
+		--tag ${REGISTRY_REPOSITORY}/$(2):latest \
+		-f agent/docker/Dockerfile .
 endef
 
 agent-build-bin:

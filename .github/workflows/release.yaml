@@ -28,7 +28,8 @@ jobs:
       - name: Set up version
         id: version
         run: |
-          echo "version=$(go run ./cmd/agent/main.go version)" >> "$GITHUB_OUTPUT"
+          echo "version=$(go run ./agent/cmd/main.go version)" >> "$GITHUB_OUTPUT"
+          echo "$GITHUB_OUTPUT"
 
       - name: Build
         run: |
@@ -36,10 +37,13 @@ jobs:
           TARGET_OS=linux TARGET_ARCH=arm64 make agent-build-bin
           TARGET_OS=darwin TARGET_ARCH=amd64 make agent-build-bin
           TARGET_OS=darwin TARGET_ARCH=arm64 make agent-build-bin
+
+          TARGET_OS=linux TARGET_ARCH=amd64 make envoy-agent-build-bin
+          TARGET_OS=linux TARGET_ARCH=arm64 make envoy-agent-build-bin
           ls -la dist
 
       - name: Upload binaries
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: binaries
           path: dist/
@@ -73,11 +77,14 @@ jobs:
       - name: Build and Deploy Docker Images
         env:
           VERSION: ${{ needs.build-binaries.outputs.version }}
+          PLATFORM: "linux/amd64,linux/arm64"
+          OUTPUT_TYPE: registry
         run: |
-          VERSION=$(make version)
-          PLATFORM="linux/amd64,linux/arm64,linux/arm/v7" 
-          OUTPUT_TYPE=registry 
+          chmod +x dist/agent-linux_amd64 dist/agent-linux_arm64
+          chmod +x dist/envoy-agent-linux_amd64 dist/envoy-agent-linux_arm64
+          ls -la dist
           make agent-build-image
+          make envoy-agent-build-image
 
   create-release:
     runs-on: ubuntu-latest

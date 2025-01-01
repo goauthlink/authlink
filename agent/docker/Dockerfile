@@ -4,12 +4,16 @@
 
 FROM alpine:3.21 
 
-WORKDIR /authlink
+LABEL org.opencontainers.image.authors="Anton Gubarev <antgubarev.dev@gmail.com>"
+LABEL org.opencontainers.image.source="https://github.com/goauthlink/authlink"
+LABEL org.opencontainers.image.description="high-performance auth service focused on working with HTTP requests"
 
-ARG AGENT_BIN
+ARG BIN
+ARG TARGETOS
+ARG TARGETARCH
 
-COPY dist/${AGENT_BIN} /authlink/agent
+COPY dist/${BIN}-${TARGETOS}_${TARGETARCH} /agent
 
-ENV PATH=${PATH}:/authlink
+ENV PATH=${PATH}:/
 
-ENTRYPOINT ["agent"]
+ENTRYPOINT ["/agent"]
