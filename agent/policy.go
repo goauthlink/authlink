@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/auth-request-agent/agent/agent/observe"
-	"github.com/auth-request-agent/agent/sdk/policy"
+	"github.com/goauthlink/authlink/agent/observe"
+	"github.com/goauthlink/authlink/sdk/policy"
 )
 
 type Policy struct {

@@ -1,4 +1,4 @@
-module github.com/auth-request-agent/agent
+module github.com/goauthlink/authlink
 
 go 1.23
 

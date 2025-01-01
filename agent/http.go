@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
+// Copyright 2024 The AuthLink Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auth-request-agent/agent/pkg/logging"
-	sdk_policy "github.com/auth-request-agent/agent/sdk/policy"
+	"github.com/goauthlink/authlink/pkg/logging"
+	sdk_policy "github.com/goauthlink/authlink/sdk/policy"
 )
 
 type HttpServer struct {

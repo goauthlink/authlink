@@ -1,4 +1,4 @@
-# Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
+# Copyright 2024 The AuthLink Authors.  All rights reserved.
 # Use of this source code is governed by an Apache2
 # license that can be found in the LICENSE file.
 
@@ -18,7 +18,7 @@ services:
       - backend
 
   agent:
-    image: ghcr.io/auth-request-agent/agent:latest
+    image: ghcr.io/goauthlink/authlink:latest
     command: run --addr :8090 --tls-disable /policy.yaml
     volumes:
       - type: bind

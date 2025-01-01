@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/auth-request-agent/agent/sdk/policy"
+	"github.com/goauthlink/authlink/sdk/policy"
 )
 
 const regoTemplate = `package authz

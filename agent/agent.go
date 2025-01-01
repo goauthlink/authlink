@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
+// Copyright 2024 The AuthLink Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auth-request-agent/agent/agent/observe"
-	"github.com/auth-request-agent/agent/sdk/policy"
+	"github.com/goauthlink/authlink/agent/observe"
+	"github.com/goauthlink/authlink/sdk/policy"
 )
 
 type Server interface {

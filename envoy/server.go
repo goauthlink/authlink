@@ -1,4 +1,4 @@
-// Copyright 2024 The AuthRequestAgent Authors.  All rights reserved.
+// Copyright 2024 The AuthLink Authors.  All rights reserved.
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
@@ -10,10 +10,10 @@ import (
 	"log/slog"
 	"net"
 
-	"github.com/auth-request-agent/agent/agent"
-	"github.com/auth-request-agent/agent/pkg/logging"
-	"github.com/auth-request-agent/agent/sdk/policy"
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
+	"github.com/goauthlink/authlink/agent"
+	"github.com/goauthlink/authlink/pkg/logging"
+	"github.com/goauthlink/authlink/sdk/policy"
 	rpc_code "google.golang.org/genproto/googleapis/rpc/code"
 	rpc_status "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"

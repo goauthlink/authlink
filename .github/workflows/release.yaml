@@ -32,10 +32,10 @@ jobs:
 
       - name: Build
         run: |
-          GOOS=linux GOARCH=amd64 make agent-build-bin
-          GOOS=linux GOARCH=arm64 make agent-build-bin
-          GOOS=darwin GOARCH=amd64 make agent-build-bin
-          GOOS=darwin GOARCH=arm64 make agent-build-bin
+          TARGET_OS=linux TARGET_ARCH=amd64 make agent-build-bin
+          TARGET_OS=linux TARGET_ARCH=arm64 make agent-build-bin
+          TARGET_OS=darwin TARGET_ARCH=amd64 make agent-build-bin
+          TARGET_OS=darwin TARGET_ARCH=arm64 make agent-build-bin
           ls -la dist
 
       - name: Upload binaries
@@ -98,7 +98,7 @@ jobs:
         with:
           draft: true
           token: ${{ secrets.GH_TOKEN }}
-          repository: auth-request-agent/agent
+          repository: goauthlink/authlink
           generate_release_notes: true
           files: |
             dist/*.tar.gz 

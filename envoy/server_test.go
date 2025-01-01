@@ -1,3 +1,7 @@
+// Copyright 2024 The AuthLink Authors.  All rights reserved.
+// Use of this source code is governed by an Apache2
+// license that can be found in the LICENSE file.
+
 package envoy
 
 import (
@@ -5,9 +9,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/auth-request-agent/agent/agent"
-	"github.com/auth-request-agent/agent/sdk/policy"
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
+	"github.com/goauthlink/authlink/agent"
+	"github.com/goauthlink/authlink/sdk/policy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	rpc_code "google.golang.org/genproto/googleapis/rpc/code"
