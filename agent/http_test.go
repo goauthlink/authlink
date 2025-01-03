@@ -37,7 +37,7 @@ func initTestHttpServer(t *testing.T, pol *string, cfg *Config, opts ...ServerOp
 		checker = policy.NewChecker()
 		require.NoError(t, checker.SetPolicy([]byte(*pol)))
 	}
-	policy := NewPolicy(checker, nil, nil)
+	policy := NewPolicy(checker, nil)
 
 	httpServer, err := NewHttpServer(fCfg.HttpAddr, policy, srvOptions...)
 	require.NoError(t, err)
