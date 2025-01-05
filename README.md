@@ -236,7 +236,9 @@ Agent exposes these metrics
 |-------------|-------------|-------------|
 | check_rq_total | Counter | A counter of check requests |
 | check_rq_failed | Counter | A counter of failed check requests (500 response code) |
-| check_rq_duration | Histogram | A histogram of duration for check requests |
+| check_rq_duration_ms | Histogram | A histogram of duration for check requests |
+| http_request_time_seconds | Histogram | A histogram of duration for http requests |
+| http_request_total | Counter | Aggregate HTTP response codes (e.g., 2xx, 3xx, etc.) |
 
 Also agent exposes runtime metrics provided automatically by the [Prometheus Go Client](https://github.com/prometheus/client_golang). They are prefixed with `go_*` and `process_*` (only for linux).
 

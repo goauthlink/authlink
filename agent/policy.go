@@ -27,7 +27,7 @@ func NewPolicy(
 ) *Policy {
 	counterRqTotal, _ := metrics.NewCounter("check_rq_total", "A counter of check requests")
 	counterRqFailed, _ := metrics.NewCounter("check_rq_failed", "A counter of failed check requests (500 response code)")
-	histogramRqDuration, _ := metrics.NewHistogram("check_rq_duration", "A histogram of duration for check requests",
+	histogramRqDuration, _ := metrics.NewHistogram("check_rq_duration_ms", "A histogram of duration for check requests",
 		1, 2, 5, 10, 20, 100, 1000,
 	)
 
@@ -40,18 +40,18 @@ func NewPolicy(
 	}
 }
 
-func (p *Policy) Check(ctx context.Context, in policy.CheckInput) (*policy.CheckResult, error) {
+func (p *Policy) Check(_ context.Context, in policy.CheckInput) (*policy.CheckResult, error) {
 	start := time.Now()
 
 	defer func() {
 		finish := time.Since(start)
-		p.histogramRqDuration.Record(ctx, float64(finish.Milliseconds()))
-		p.counterRqTotal.Record(ctx, 1)
+		p.histogramRqDuration.Record(float64(finish.Milliseconds()), nil)
+		p.counterRqTotal.Record(1, nil)
 	}()
 
 	result, err := p.checker.Check(in)
 	if err != nil {
-		p.counterRqFailed.Record(ctx, 1)
+		p.counterRqFailed.Record(1, nil)
 		return result, fmt.Errorf("policy check failed: %w", err)
 	}
 

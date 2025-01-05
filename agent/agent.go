@@ -66,14 +66,17 @@ func Init(config Config) (*Agent, error) {
 		return nil, fmt.Errorf("init http server: %w", err)
 	}
 
-	observeServerOpions := []monitoring.ServerOpt{
+	monitoringServerOpions := []monitoring.ServerOpt{
 		monitoring.WithLogger(agent.logger),
 	}
-	observeServer := monitoring.NewServer(config.MonitoringAddr, observeServerOpions...)
+	monitoringServer, err := monitoring.NewServer(config.MonitoringAddr, monitoringServerOpions...)
+	if err != nil {
+		return nil, err
+	}
 
 	agent.servers = []Server{
 		httpServer,
-		observeServer,
+		monitoringServer,
 	}
 
 	agent.logger.Info("agent inited")

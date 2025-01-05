@@ -6,5 +6,5 @@ package pkg
 
 const (
 	AgentImageName = "ghcr.io/goauthlink/authlink"
-	Version        = "0.6.0"
+	Version        = "0.6.1"
 )

@@ -10,12 +10,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_GetHealtHandler(t *testing.T) {
 	w := httptest.NewRecorder()
 
-	server := NewServer(":9191")
+	server, err := NewServer(":9191")
+	require.NoError(t, err)
 
 	request := httptest.NewRequest(http.MethodGet, "http://localhost:9191/health", nil)
 

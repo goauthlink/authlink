@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/goauthlink/authlink/pkg/metrics"
 )
 
 type Server struct {
@@ -27,9 +27,14 @@ func WithLogger(logger *slog.Logger) ServerOpt {
 	}
 }
 
-func NewServer(addr string, opts ...ServerOpt) *Server {
+func NewServer(addr string, opts ...ServerOpt) (*Server, error) {
+	promhandler, err := metrics.RegisterPrometheusExporter()
+	if err != nil {
+		return nil, fmt.Errorf("init monitoring server: %w", err)
+	}
+
 	router := http.NewServeMux()
-	router.Handle("GET /metrics", promhttp.Handler())
+	router.Handle("GET /metrics", promhandler)
 	router.Handle("GET /health", routerGetHealtzHandler())
 
 	monitoringSrv := &Server{
@@ -43,7 +48,7 @@ func NewServer(addr string, opts ...ServerOpt) *Server {
 		o(monitoringSrv)
 	}
 
-	return monitoringSrv
+	return monitoringSrv, nil
 }
 
 func routerGetHealtzHandler() http.Handler {
@@ -53,9 +58,9 @@ func routerGetHealtzHandler() http.Handler {
 }
 
 func (monitorSrv *Server) Start(_ context.Context) error {
-	err := monitorSrv.srv.ListenAndServe()
 	monitorSrv.logger.Info(fmt.Sprintf("monitor server is starting on %s", monitorSrv.srv.Addr))
-	if err != nil && err != http.ErrServerClosed {
+
+	if err := monitorSrv.srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("monitoring server listening: %w", err)
 	}
 
