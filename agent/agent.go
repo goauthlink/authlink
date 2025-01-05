@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/goauthlink/authlink/agent/observe"
+	"github.com/goauthlink/authlink/agent/monitoring"
 	"github.com/goauthlink/authlink/sdk/policy"
 )
 
@@ -47,12 +47,7 @@ func Init(config Config) (*Agent, error) {
 		})))
 	}
 
-	metrics, err := observe.NewMetrics()
-	if err != nil {
-		return nil, err
-	}
-
-	agent.policy = NewPolicy(policy.NewChecker(), checkLogger, metrics)
+	agent.policy = NewPolicy(policy.NewChecker(), checkLogger)
 
 	if err := agent.updateFiles(); err != nil {
 		return nil, err
@@ -71,14 +66,17 @@ func Init(config Config) (*Agent, error) {
 		return nil, fmt.Errorf("init http server: %w", err)
 	}
 
-	observeServerOpions := []observe.ServerOpt{
-		observe.WithLogger(agent.logger),
+	monitoringServerOpions := []monitoring.ServerOpt{
+		monitoring.WithLogger(agent.logger),
 	}
-	observeServer := observe.NewServer(config.MonitoringAddr, observeServerOpions...)
+	monitoringServer, err := monitoring.NewServer(config.MonitoringAddr, monitoringServerOpions...)
+	if err != nil {
+		return nil, err
+	}
 
 	agent.servers = []Server{
 		httpServer,
-		observeServer,
+		monitoringServer,
 	}
 
 	agent.logger.Info("agent inited")

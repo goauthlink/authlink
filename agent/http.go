@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/goauthlink/authlink/pkg/logging"
+	"github.com/goauthlink/authlink/pkg/metrics"
 	sdk_policy "github.com/goauthlink/authlink/sdk/policy"
 )
 
@@ -62,7 +63,13 @@ func NewHttpServer(addr string, policy *Policy, opts ...ServerOpt) (*HttpServer,
 
 	router := http.NewServeMux()
 	router.Handle("POST /check", routerPostCheckHandler(httpSrv.policy, httpSrv.logger))
-	httpSrv.httpserver.Handler = router
+
+	metricsMiddleware, err := metrics.NewHTTPMiddleware(router)
+	if err != nil {
+		return nil, err
+	}
+
+	httpSrv.httpserver.Handler = metricsMiddleware
 
 	return httpSrv, nil
 }

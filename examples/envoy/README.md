@@ -107,3 +107,15 @@ See full example in `examples/envoy/proxy/envoy.yaml`
 # AuthLink envoy extension
 
 To integrate with Envoy AuthLink uses [extensions](https://github.com/goauthlink/authlink/tree/master/envoy) since the implementation of the gRPC method is required.
+
+Extension adds new flag for `agent run` command:
+
+```bash
+--grpc-addr string set listening address of the grpc server (e.g., [ip]:<port>) (default ":8282")
+```
+
+Extension adds new metric:
+
+| metric name | metric type | description |
+|-------------|-------------|-------------|
+| envoy_grpc_handler_duration_seconds | Histogram | A histogram of duration for grpc requests. |

@@ -21,7 +21,7 @@ func newTestServer(t *testing.T, pol string) *Server {
 	checker := policy.NewChecker()
 	require.NoError(t, checker.SetPolicy([]byte(pol)))
 
-	policy := agent.NewPolicy(checker, nil, nil)
+	policy := agent.NewPolicy(checker, nil)
 	srv, err := New(":0", policy)
 	require.NoError(t, err)
 

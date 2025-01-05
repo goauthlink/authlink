@@ -35,8 +35,13 @@ type Server struct {
 }
 
 func New(addr string, policy *agent.Policy, opts ...ServerOpt) (*Server, error) {
+	statshandler, err := newStatsHandler()
+	if err != nil {
+		return nil, err
+	}
+
 	srv := &Server{
-		server: grpc.NewServer([]grpc.ServerOption{}...),
+		server: grpc.NewServer(grpc.StatsHandler(statshandler)),
 		policy: policy,
 		addr:   addr,
 	}
@@ -55,12 +60,12 @@ func New(addr string, policy *agent.Policy, opts ...ServerOpt) (*Server, error) 
 func (s *Server) Start(_ context.Context) error {
 	authv3.RegisterAuthorizationServer(s.server, s)
 
-	s.logger.Info(fmt.Sprintf("grpc server is starting on %s", s.addr))
-
 	listener, err := net.Listen("tcp", s.addr)
 	if err != nil {
 		return fmt.Errorf("listen tcp for grpc server on %s: %w", s.addr, err)
 	}
+
+	s.logger.Info(fmt.Sprintf("grpc server is starting on %s", s.addr))
 
 	if err := s.server.Serve(listener); err != nil {
 		return fmt.Errorf("serve grpc server: %w", err)
