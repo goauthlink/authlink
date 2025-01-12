@@ -12,14 +12,14 @@ import (
 	"path/filepath"
 
 	"github.com/goauthlink/authlink/agent"
-	"github.com/goauthlink/authlink/pkg/cmd"
 	"github.com/goauthlink/authlink/pkg/logging"
+	"github.com/goauthlink/authlink/pkg/runtime"
 	"github.com/spf13/cobra"
 )
 
 type RunExtension interface {
 	ConfigRunCmd(cmd *cobra.Command)
-	Server(runArgs []string, agent *agent.Agent) (agent.Server, error)
+	Server(runArgs []string, agent *agent.Agent) (runtime.Server, error)
 }
 
 type runCmdParams struct {
@@ -62,17 +62,9 @@ func newRunCmd(extensions ...RunExtension) *cobra.Command {
 				agent.AddServer(server)
 			}
 
-			stop := make(chan struct{}, 1)
-
-			go func() {
-				if err := agent.Run(stop); err != nil {
-					exitErr(err.Error())
-				}
-			}()
-
-			cmd.WaitSignal(stop)
-
-			agent.WaitUntilCompletion()
+			if err := agent.Run(); err != nil {
+				exitErr(err.Error())
+			}
 		},
 	}
 

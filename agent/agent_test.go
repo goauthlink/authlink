@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"log/slog"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -90,12 +91,11 @@ func Test_TLSListening(t *testing.T) {
 	agent, err := Init(config)
 	require.NoError(t, err)
 
-	stop := make(chan struct{}, 1)
+	agentWg := sync.WaitGroup{}
+	agentWg.Add(1)
 	go func() {
-		err = agent.Run(stop)
-	}()
-	defer func() {
-		stop <- struct{}{}
+		err = agent.Run()
+		agentWg.Done()
 	}()
 	time.Sleep(time.Second * 1)
 
@@ -119,6 +119,9 @@ func Test_TLSListening(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	agent.runtime.Stop()
+	agentWg.Wait()
 }
 
 func Test_UpdateFiles(t *testing.T) {
@@ -133,9 +136,11 @@ func Test_UpdateFiles(t *testing.T) {
 	agent, err := Init(config)
 	require.NoError(t, err)
 
-	stop := make(chan struct{}, 1)
+	agentWg := sync.WaitGroup{}
+	agentWg.Add(1)
 	go func() {
-		err = agent.Run(stop)
+		err = agent.Run()
+		agentWg.Done()
 	}()
 	time.Sleep(time.Second * 1)
 
@@ -153,7 +158,8 @@ policies:
 
 	assert.Equal(t, []byte(newPolicy), agent.policy.Policy())
 
-	stop <- struct{}{}
+	agent.runtime.Stop()
+	agentWg.Wait()
 
 	require.NoError(t, err)
 }

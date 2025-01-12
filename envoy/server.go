@@ -57,6 +57,10 @@ func New(addr string, policy *agent.Policy, opts ...ServerOpt) (*Server, error) 
 	return srv, nil
 }
 
+func (s *Server) Name() string {
+	return "envoy"
+}
+
 func (s *Server) Start(_ context.Context) error {
 	authv3.RegisterAuthorizationServer(s.server, s)
 

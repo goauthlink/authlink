@@ -11,6 +11,7 @@ import (
 	"github.com/goauthlink/authlink/agent"
 	"github.com/goauthlink/authlink/agent/cmd/app"
 	"github.com/goauthlink/authlink/envoy"
+	"github.com/goauthlink/authlink/pkg/runtime"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +27,7 @@ func (r *EnvoyExtension) ConfigRunCmd(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&grpcAddr, "envoy-grpc-addr", ":8282", "set listening address of the envoy grpc server (e.g., [ip]:<port>)")
 }
 
-func (r *EnvoyExtension) Server(runArgs []string, agent *agent.Agent) (agent.Server, error) {
+func (r *EnvoyExtension) Server(runArgs []string, agent *agent.Agent) (runtime.Server, error) {
 	envoyServer, err := envoy.New(grpcAddr, agent.Policy(), envoy.WithLogger(agent.Logger()))
 	if err != nil {
 		return nil, fmt.Errorf("start envoy server: %w", err)

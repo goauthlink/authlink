@@ -57,6 +57,10 @@ func routerGetHealtzHandler() http.Handler {
 	})
 }
 
+func (monitorSrv *Server) Name() string {
+	return "http"
+}
+
 func (monitorSrv *Server) Start(_ context.Context) error {
 	monitorSrv.logger.Info(fmt.Sprintf("monitor server is starting on %s", monitorSrv.srv.Addr))
 

@@ -100,6 +100,10 @@ func (srv *HttpServer) Start(_ context.Context) error {
 	return nil
 }
 
+func (htttServer *HttpServer) Name() string {
+	return "http"
+}
+
 func (httpServer *HttpServer) Shutdown(ctx context.Context) error {
 	ctxd, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()

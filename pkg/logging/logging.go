@@ -5,6 +5,7 @@
 package logging
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log/slog"
@@ -22,4 +23,11 @@ func ParseLevel(s string) (slog.Level, error) {
 
 func NewNullLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
+func NewBufferedLogger() (*slog.Logger, *bytes.Buffer) {
+	buf := &bytes.Buffer{}
+	return slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})), buf
 }
