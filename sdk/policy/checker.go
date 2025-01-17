@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/golang-jwt/jwt/v5"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -56,7 +57,12 @@ func NewChecker() *Checker {
 }
 
 func (c *Checker) SetPolicy(policy []byte) error {
-	prepConfig, err := PrepareConfig(policy)
+	config := Config{}
+	if err := yaml.Unmarshal(policy, &config); err != nil {
+		return fmt.Errorf("invalid policy yaml: %w", err)
+	}
+
+	prepConfig, err := PrepareConfig(config)
 	if err != nil {
 		return fmt.Errorf("parse policy: %s", err)
 	}

@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  name: service
+spec:
+  containers:
+  - image: echo-service
+    name: service
+    ports:
+    - containerPort: 80
+    resources: {}
+  - image: ghcr.io/goauthlink/authlink:0.6.1
+    imagePullPolicy: IfNotPresent
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8181
+    name: auth
+    ports:
+    - containerPort: 8181
+    - containerPort: 8282
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8181
+    resources: {}
+status: {}

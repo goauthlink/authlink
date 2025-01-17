@@ -14,39 +14,8 @@ import (
 	"sort"
 	"strings"
 
-	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/util/jsonpath"
 )
-
-type CnJWT struct {
-	Payload     string  `yaml:"payload"`
-	Header      *string `yaml:"header,omitempty"`
-	Cookie      *string `yaml:"cookie,omitempty"`
-	KeyFile     *string `yaml:"keyFile,omitempty"`
-	KeyFileData []byte  `yaml:"-"`
-	// KeyCache string  `yaml:"keyCache"` todo: need to implement
-}
-
-type Cn struct {
-	Prefix string  `yaml:"prefix"`
-	Header *string `yaml:"header,omitempty"`
-	JWT    *CnJWT  `yaml:"jwt,omitempty"`
-}
-
-type Policy struct {
-	Uri     []string `yaml:"uri"`
-	Methods []string `yaml:"method"`
-	Allow   []string `yaml:"allow"`
-}
-
-type Variables map[string][]string
-
-type Config struct {
-	Cn       []Cn      `yaml:"cn"`
-	Vars     Variables `yaml:"vars"`
-	Default  []string  `yaml:"default"`
-	Policies []Policy  `yaml:"policies"`
-}
 
 type preparedParser struct {
 	Prefix     string
@@ -85,16 +54,9 @@ const (
 	errLoadJWTKeyFile                         = "loading JWT key file: %s"
 )
 
-func PrepareConfig(config []byte) (*preparedConfig, error) {
-	c := Config{}
-
-	err := yaml.Unmarshal(config, &c)
-	if err != nil {
-		return nil, err
-	}
-
+func PrepareConfig(config Config) (*preparedConfig, error) {
 	// prepare client names
-	for _, cn := range c.Cn {
+	for _, cn := range config.Cn {
 		if cn.JWT != nil {
 			if cn.JWT.Cookie != nil && cn.JWT.Header != nil {
 				return nil, errors.New(validationErrHeaderOrCookieAsJWTSource)
@@ -115,13 +77,13 @@ func PrepareConfig(config []byte) (*preparedConfig, error) {
 
 	// prepare policies
 	uriUnique := map[string]struct{}{}
-	for pi, policy := range c.Policies {
+	for pi, policy := range config.Policies {
 		if len(policy.Uri) == 0 {
 			return nil, errors.New(validationErrAtLeastOneUriMustBeInRule)
 		}
 
 		if len(policy.Methods) == 0 {
-			c.Policies[pi].Methods = []string{"*"}
+			config.Policies[pi].Methods = []string{"*"}
 		} else {
 			for mi, m := range policy.Methods {
 				ml := strings.ToUpper(m)
@@ -141,7 +103,7 @@ func PrepareConfig(config []byte) (*preparedConfig, error) {
 					}
 					return nil, fmt.Errorf(validationErrUndefinedHttpMethod, m)
 				}
-				c.Policies[pi].Methods[mi] = ml
+				config.Policies[pi].Methods[mi] = ml
 			}
 		}
 
@@ -150,7 +112,7 @@ func PrepareConfig(config []byte) (*preparedConfig, error) {
 				return nil, errors.New(validationErrEmptyUri)
 			}
 
-			for _, m := range c.Policies[pi].Methods {
+			for _, m := range config.Policies[pi].Methods {
 				if _, ok := uriUnique[uri+":"+m]; ok {
 					return nil, fmt.Errorf(validationErrDuplicatedUri, m+":"+uri)
 				}
@@ -164,20 +126,20 @@ func PrepareConfig(config []byte) (*preparedConfig, error) {
 		}
 	}
 
-	prepDefault, err := prepareAllow(c.Default, c.Vars)
+	prepDefault, err := prepareAllow(config.Default, config.Vars)
 	if err != nil {
 		return nil, fmt.Errorf("fail to parse client: %s", err.Error())
 	}
 	preparedConfig := preparedConfig{
-		Cn:      c.Cn,
+		Cn:      config.Cn,
 		Default: *prepDefault,
 	}
 
 	prepPolicies := []preparedPolicy{}
 
-	for _, policy := range c.Policies {
+	for _, policy := range config.Policies {
 		for _, uri := range policy.Uri {
-			prepAllow, err := prepareAllow(policy.Allow, c.Vars)
+			prepAllow, err := prepareAllow(policy.Allow, config.Vars)
 			if err != nil {
 				return nil, fmt.Errorf("fail to parse client: %s", err.Error())
 			}

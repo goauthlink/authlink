@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 type vaidationTestCase struct {
@@ -102,7 +103,10 @@ default:
 
 	for _, tcase := range tcases {
 		t.Run(tcase.name, func(t *testing.T) {
-			_, err := PrepareConfig([]byte(tcase.config))
+			config := Config{}
+			err := yaml.Unmarshal([]byte(tcase.config), &config)
+			require.NoError(t, err)
+			_, err = PrepareConfig(config)
 			require.NotNil(t, err)
 			require.ErrorContains(t, err, tcase.want)
 		})
