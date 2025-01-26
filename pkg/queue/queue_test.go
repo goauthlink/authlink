@@ -2,7 +2,7 @@
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
-package controller
+package queue
 
 import (
 	"context"
@@ -18,7 +18,7 @@ type testEvent struct {
 }
 
 func Test_ConsumeAsync(t *testing.T) {
-	queue := newQueue[testEvent]()
+	queue := NewQueue[testEvent]()
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -54,7 +54,7 @@ func Test_ConsumeAsync(t *testing.T) {
 }
 
 func Test_ConsumeAfter(t *testing.T) {
-	queue := newQueue[testEvent]()
+	queue := NewQueue[testEvent]()
 	for i := 0; i < 10; i++ {
 		queue.Push(testEvent{
 			id: i,

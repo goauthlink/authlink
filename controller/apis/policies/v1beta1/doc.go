@@ -2,13 +2,8 @@
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
-package models
+// +k8s:deepcopy-gen=package
+// +groupName=authlink.io
+// +k8s:openapi-gen=true
 
-type LabelSet map[string]string
-
-type Policy struct {
-	Name      string
-	Namespace string
-	Raw       []byte
-	Labels    LabelSet
-}
+package v1beta1

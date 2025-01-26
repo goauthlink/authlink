@@ -2,13 +2,8 @@
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
-package models
+package policies
 
-type LabelSet map[string]string
-
-type Policy struct {
-	Name      string
-	Namespace string
-	Raw       []byte
-	Labels    LabelSet
-}
+const (
+	GroupName = "authlink.io"
+)

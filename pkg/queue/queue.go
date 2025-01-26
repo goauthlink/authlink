@@ -2,7 +2,7 @@
 // Use of this source code is governed by an Apache2
 // license that can be found in the LICENSE file.
 
-package controller
+package queue
 
 import (
 	"context"
@@ -17,7 +17,7 @@ type Queue[qitem any] struct {
 	stopped bool
 }
 
-func newQueue[qitem any]() *Queue[qitem] {
+func NewQueue[qitem any]() *Queue[qitem] {
 	return &Queue[qitem]{
 		cond:    *sync.NewCond(&sync.Mutex{}),
 		items:   make([]*qitem, 0),

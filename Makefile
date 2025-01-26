@@ -53,3 +53,8 @@ agent-build-image: docker-buildx-builder
 
 envoy-agent-build-image: docker-buildx-builder
 	$(call agent-build-image,envoy/cmd/main.go,envoy-agent)
+
+gen-grpc:
+	protoc --go_out=. --go_opt=paths=source_relative \
+		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
+		api/discovery.proto
