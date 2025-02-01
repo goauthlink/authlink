@@ -5,9 +5,11 @@
 package kube
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/goauthlink/authlink/controller/models"
+	"github.com/goauthlink/authlink/sdk/policy"
 )
 
 func Test_ListWithLabels(t *testing.T) {
@@ -16,34 +18,55 @@ func Test_ListWithLabels(t *testing.T) {
 	ps := newPolicyCache()
 	ps.Put(ns, models.Policy{
 		Name:   "policy-1",
-		Raw:    []byte{},
+		Config: policy.Config{},
 		Labels: map[string]string{"l1": "v1"},
 	})
 
 	ps.Put(ns, models.Policy{
 		Name:   "policy-2",
-		Raw:    []byte{},
+		Config: policy.Config{},
 		Labels: map[string]string{"l1": "v1", "l2": "v2"},
 	})
 
 	ps.Put(ns, models.Policy{
 		Name:   "policy-3",
-		Raw:    []byte{},
+		Config: policy.Config{},
 		Labels: map[string]string{"l3": "v3"},
 	})
 
 	matchedPolicies := ps.List(ns, models.LabelSet{"l1": "v1", "cl1": "cv2"})
 	if len(matchedPolicies) < 1 || matchedPolicies[0].Name != "policy-1" {
-		t.Errorf("expected policy-1 must be matched, matched %s", matchedPolicies)
+		t.Errorf("expected policy-1 must be matched, matched %v", matchedPolicies)
 	}
 
 	matchedPolicies = ps.List(ns, models.LabelSet{"l1": "v1", "l2": "v2", "cl1": "cv2"})
-	if len(matchedPolicies) < 2 || matchedPolicies[0].Name != "policy-1" || matchedPolicies[1].Name != "policy-2" {
-		t.Errorf("expected policy-1 and policy-2 must be matched, matched %s", matchedPolicies)
+	if !reflect.DeepEqual(matchedPolicies, []models.Policy{
+		{
+			Name:   "policy-1",
+			Config: policy.Config{},
+			Labels: map[string]string{"l1": "v1"},
+		}, {
+			Name:   "policy-2",
+			Config: policy.Config{},
+			Labels: map[string]string{"l1": "v1", "l2": "v2"},
+		},
+	}) {
+		t.Errorf("expected policy-1 and policy-2 must be matched, matched %v", matchedPolicies)
 	}
 
 	matchedPolicies = ps.List(ns, models.LabelSet{"l1": "v1", "l3": "v3", "cl1": "cv2"})
-	if len(matchedPolicies) < 2 || matchedPolicies[0].Name != "policy-1" || matchedPolicies[1].Name != "policy-3" {
-		t.Errorf("expected policy-1 and policy-3 must be matched, matched %s", matchedPolicies)
+	if !reflect.DeepEqual(matchedPolicies, []models.Policy{
+		{
+			Name:   "policy-1",
+			Config: policy.Config{},
+			Labels: map[string]string{"l1": "v1"},
+		},
+		{
+			Name:   "policy-3",
+			Config: policy.Config{},
+			Labels: map[string]string{"l3": "v3"},
+		},
+	}) {
+		t.Errorf("expected policy-1 and policy-3 must be matched, matched %v", matchedPolicies)
 	}
 }

@@ -11,7 +11,7 @@ func Test_IsLabelsMatched(t *testing.T) {
 		t.Error("labels are not matched")
 	}
 
-	if isLabelsMatched(map[string]string{"l1": "v1", "l2": "v2"}, map[string]string{"l1": "v1", "l3": "v3"}) {
+	if isLabelsMatched(map[string]string{"l1": "v1", "l2": "v2"}, map[string]string{"l3": "v3", "l1": "v1"}) {
 		t.Error("labels are matched")
 	}
 

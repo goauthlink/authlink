@@ -4,11 +4,15 @@
 
 package models
 
+import (
+	"github.com/goauthlink/authlink/sdk/policy"
+)
+
 type LabelSet map[string]string
 
 type Policy struct {
 	Name      string
 	Namespace string
-	Raw       []byte
+	Config    policy.Config
 	Labels    LabelSet
 }

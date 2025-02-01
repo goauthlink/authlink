@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package authlink;
+
+option go_package="github.com/goauthlink/authlink/api";
+
+message GetPolicy {
+    string id = 1;
+    string namespace = 2;
+    map<string, string> labels = 3;
+}
+
+message PolicySnapshot {
+    repeated string policy = 1;
+}
+
+service DicsoveryService {
+    rpc Policy(GetPolicy)
+       returns (stream PolicySnapshot) {}
+}
+

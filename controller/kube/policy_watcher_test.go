@@ -6,28 +6,28 @@ package kube
 
 import (
 	"context"
-	"encoding/json"
 	"reflect"
+	"slices"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/goauthlink/authlink/controller/apis/generated/clientset/versioned/fake"
-	"github.com/goauthlink/authlink/controller/apis/policies/v1beta1"
+	"github.com/goauthlink/authlink/controller/kube/fake"
 	"github.com/goauthlink/authlink/controller/models"
 	"github.com/goauthlink/authlink/pkg/logging"
-	sdk "github.com/goauthlink/authlink/sdk/policy"
-	"gopkg.in/yaml.v3"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/goauthlink/authlink/sdk/policy"
 )
 
-var testPolicyConfig = `
-cn:
-  - header: "x-source1"
-policies:
-  - uri: ["/"]
-    allow: ["*"]`
+var testPolicyConfig = policy.Config{
+	Cn: []policy.Cn{{
+		Prefix: "prefix",
+		Header: new(string),
+		JWT:    &policy.CnJWT{},
+	}},
+	Vars:     map[string][]string{},
+	Default:  []string{"*"},
+	Policies: []policy.Policy{},
+}
 
 type mockPolicyListener struct {
 	received []NsPolicySnapshot
@@ -68,7 +68,7 @@ func (mpl *mockPolicyListener) waitToRecieve(timeout time.Duration) bool {
 
 func Test_WatcherAdd(t *testing.T) {
 	logger := logging.NewNullLogger()
-	api, clientSet := newFakeApi(logger)
+	api, clientSet := NewFakeApi(logger)
 
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
@@ -90,44 +90,37 @@ func Test_WatcherAdd(t *testing.T) {
 		Labels:    map[string]string{"l1": "v1"},
 	}, listener)
 
-	go func() {
-		if err := watcher.Start(ctx); err != nil {
-			t.Error(err)
-		}
-	}()
-
-	expectedPolicy1 := fakeApiCreatePolicy(t, clientSet, models.Policy{
+	expectedPolicy1 := fake.CreatePolicy(t, clientSet, models.Policy{
 		Name:      "policy-1",
 		Namespace: "ns-1",
-		Raw:       []byte(testPolicyConfig),
+		Config:    testPolicyConfig,
 		Labels:    map[string]string{"l1": "v1"},
 	})
 
-	expectedPolicy2 := fakeApiCreatePolicy(t, clientSet, models.Policy{
+	expectedPolicy2 := fake.CreatePolicy(t, clientSet, models.Policy{
 		Name:      "policy-2",
 		Namespace: "ns-1",
-		Raw:       []byte(testPolicyConfig),
+		Config:    testPolicyConfig,
 		Labels:    map[string]string{"l1": "v1"},
 	})
 
 	if !listener.waitToRecieve(time.Second * 3) {
-		t.Errorf("waiting listener events canceled by timeout, received %d", len(listener.received))
-		t.Logf("%v", listener.received)
+		t.Errorf("waiting listener events canceled by timeout, received %v", listener.received)
 	}
 
 	assertReceived(t, []NsPolicySnapshot{
 		{
-			policies: []models.Policy{expectedPolicy1},
+			Policies: []models.Policy{expectedPolicy1},
 		},
 		{
-			policies: []models.Policy{expectedPolicy1, expectedPolicy2},
+			Policies: []models.Policy{expectedPolicy1, expectedPolicy2},
 		},
 	}, listener.received)
 }
 
 func Test_WatcherDelete(t *testing.T) {
 	logger := logging.NewNullLogger()
-	api, clientSet := newFakeApi(logger)
+	api, clientSet := NewFakeApi(logger)
 
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
@@ -149,49 +142,42 @@ func Test_WatcherDelete(t *testing.T) {
 		Labels:    map[string]string{},
 	}, listener)
 
-	go func() {
-		if err := watcher.Start(ctx); err != nil {
-			t.Error(err)
-		}
-	}()
-
-	expectedPolicy1 := fakeApiCreatePolicy(t, clientSet, models.Policy{
+	expectedPolicy1 := fake.CreatePolicy(t, clientSet, models.Policy{
 		Name:      "policy-1",
 		Namespace: "ns-1",
-		Raw:       []byte(testPolicyConfig),
+		Config:    testPolicyConfig,
 		Labels:    map[string]string{},
 	})
 
-	expectedPolicy2 := fakeApiCreatePolicy(t, clientSet, models.Policy{
+	expectedPolicy2 := fake.CreatePolicy(t, clientSet, models.Policy{
 		Name:      "policy-2",
 		Namespace: "ns-1",
-		Raw:       []byte(testPolicyConfig),
+		Config:    testPolicyConfig,
 		Labels:    map[string]string{},
 	})
 
-	fakeApiDeletePolicy(t, clientSet, "ns-1", "policy-1")
+	fake.DeletePolicy(t, clientSet, "ns-1", "policy-1")
 
 	if !listener.waitToRecieve(time.Second * 3) {
-		t.Errorf("waiting listener events canceled by timeout, received %d", len(listener.received))
-		t.Logf("%v", listener.received)
+		t.Errorf("waiting listener events canceled by timeout, received %v", listener.received)
 	}
 
 	assertReceived(t, []NsPolicySnapshot{
 		{
-			policies: []models.Policy{expectedPolicy1},
+			Policies: []models.Policy{expectedPolicy1},
 		},
 		{
-			policies: []models.Policy{expectedPolicy1, expectedPolicy2},
+			Policies: []models.Policy{expectedPolicy1, expectedPolicy2},
 		},
 		{
-			policies: []models.Policy{expectedPolicy2},
+			Policies: []models.Policy{expectedPolicy2},
 		},
 	}, listener.received)
 }
 
 func Test_WatcherLabels(t *testing.T) {
 	logger := logging.NewNullLogger()
-	api, clientSet := newFakeApi(logger)
+	api, clientSet := NewFakeApi(logger)
 
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
@@ -213,54 +199,47 @@ func Test_WatcherLabels(t *testing.T) {
 		Labels:    map[string]string{"l1": "v1", "l2": "v2"},
 	}, listener)
 
-	go func() {
-		if err := watcher.Start(ctx); err != nil {
-			t.Error(err)
-		}
-	}()
-
-	expectedPolicy1 := fakeApiCreatePolicy(t, clientSet, models.Policy{
+	expectedPolicy1 := fake.CreatePolicy(t, clientSet, models.Policy{
 		Name:      "policy-1",
 		Namespace: "ns-1",
-		Raw:       []byte(testPolicyConfig),
+		Config:    testPolicyConfig,
 		Labels:    map[string]string{"l1": "v1"},
 	})
 
-	expectedPolicy2 := fakeApiCreatePolicy(t, clientSet, models.Policy{
+	expectedPolicy2 := fake.CreatePolicy(t, clientSet, models.Policy{
 		Name:      "policy-2",
 		Namespace: "ns-1",
-		Raw:       []byte(testPolicyConfig),
+		Config:    testPolicyConfig,
 		Labels:    map[string]string{"l2": "v2"},
 	})
 
-	fakeApiCreatePolicy(t, clientSet, models.Policy{
+	fake.CreatePolicy(t, clientSet, models.Policy{
 		Name:      "policy-3",
 		Namespace: "ns-1",
-		Raw:       []byte(testPolicyConfig),
+		Config:    testPolicyConfig,
 		Labels:    map[string]string{"l1": "v1", "l2": "v2", "l3": "v3"},
 	})
 
 	if !listener.waitToRecieve(time.Second * 3) {
-		t.Errorf("waiting listener events canceled by timeout, received %d", len(listener.received))
-		t.Logf("%v", listener.received)
+		t.Errorf("waiting listener events canceled by timeout, received %v", listener.received)
 	}
 
 	assertReceived(t, []NsPolicySnapshot{
 		{
-			policies: []models.Policy{expectedPolicy1},
+			Policies: []models.Policy{expectedPolicy1},
 		},
 		{
-			policies: []models.Policy{expectedPolicy1, expectedPolicy2},
+			Policies: []models.Policy{expectedPolicy1, expectedPolicy2},
 		},
 		{
-			policies: []models.Policy{expectedPolicy1, expectedPolicy2},
+			Policies: []models.Policy{expectedPolicy1, expectedPolicy2},
 		},
 	}, listener.received)
 }
 
 func Test_WatcherNamespace(t *testing.T) {
 	logger := logging.NewNullLogger()
-	api, clientSet := newFakeApi(logger)
+	api, clientSet := NewFakeApi(logger)
 
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
@@ -289,30 +268,24 @@ func Test_WatcherNamespace(t *testing.T) {
 		Labels:    map[string]string{},
 	}, listener2)
 
-	go func() {
-		if err := watcher.Start(ctx); err != nil {
-			t.Error(err)
-		}
-	}()
-
-	expectedPolicy1 := fakeApiCreatePolicy(t, clientSet, models.Policy{
+	expectedPolicy1 := fake.CreatePolicy(t, clientSet, models.Policy{
 		Name:      "policy-1",
 		Namespace: "ns-1",
-		Raw:       []byte(testPolicyConfig),
+		Config:    testPolicyConfig,
 		Labels:    map[string]string{},
 	})
 
-	expectedPolicy2 := fakeApiCreatePolicy(t, clientSet, models.Policy{
+	expectedPolicy2 := fake.CreatePolicy(t, clientSet, models.Policy{
 		Name:      "policy-2",
 		Namespace: "ns-1",
-		Raw:       []byte(testPolicyConfig),
+		Config:    testPolicyConfig,
 		Labels:    map[string]string{},
 	})
 
-	expectedPolicy3 := fakeApiCreatePolicy(t, clientSet, models.Policy{
+	expectedPolicy3 := fake.CreatePolicy(t, clientSet, models.Policy{
 		Name:      "policy-3",
 		Namespace: "ns-2",
-		Raw:       []byte(testPolicyConfig),
+		Config:    testPolicyConfig,
 		Labels:    map[string]string{},
 	})
 
@@ -322,16 +295,15 @@ func Test_WatcherNamespace(t *testing.T) {
 	go func() {
 		defer lsWaitGroup.Done()
 		if !listener1.waitToRecieve(time.Second * 3) {
-			t.Errorf("waiting listener events canceled by timeout, received %d", len(listener1.received))
-			t.Logf("%v", listener1.received)
+			t.Errorf("waiting listener events canceled by timeout, received %v", listener1.received)
 		}
 
 		assertReceived(t, []NsPolicySnapshot{
 			{
-				policies: []models.Policy{expectedPolicy1},
+				Policies: []models.Policy{expectedPolicy1},
 			},
 			{
-				policies: []models.Policy{expectedPolicy1, expectedPolicy2},
+				Policies: []models.Policy{expectedPolicy1, expectedPolicy2},
 			},
 		}, listener1.received)
 	}()
@@ -340,13 +312,12 @@ func Test_WatcherNamespace(t *testing.T) {
 		defer lsWaitGroup.Done()
 
 		if !listener2.waitToRecieve(time.Second * 3) {
-			t.Errorf("waiting listener events canceled by timeout, received %d", len(listener1.received))
-			t.Logf("%v", listener1.received)
+			t.Errorf("waiting listener events canceled by timeout, received %v", listener2.received)
 		}
 
 		assertReceived(t, []NsPolicySnapshot{
 			{
-				policies: []models.Policy{expectedPolicy3},
+				Policies: []models.Policy{expectedPolicy3},
 			},
 		}, listener2.received)
 	}()
@@ -356,7 +327,7 @@ func Test_WatcherNamespace(t *testing.T) {
 
 func Test_WatcherUnsibscribe(t *testing.T) {
 	logger := logging.NewNullLogger()
-	api, clientSet := newFakeApi(logger)
+	api, clientSet := NewFakeApi(logger)
 
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
@@ -383,29 +354,22 @@ func Test_WatcherUnsibscribe(t *testing.T) {
 		Labels:    map[string]string{},
 	}, listener)
 
-	go func() {
-		if err := watcher.Start(ctx); err != nil {
-			t.Error(err)
-		}
-	}()
-
-	expectedPolicy1 := fakeApiCreatePolicy(t, clientSet, models.Policy{
+	expectedPolicy1 := fake.CreatePolicy(t, clientSet, models.Policy{
 		Name:      "policy-1",
 		Namespace: ns1,
-		Raw:       []byte(testPolicyConfig),
+		Config:    testPolicyConfig,
 		Labels:    map[string]string{},
 	})
 
-	expectedPolicy2 := fakeApiCreatePolicy(t, clientSet, models.Policy{
+	expectedPolicy2 := fake.CreatePolicy(t, clientSet, models.Policy{
 		Name:      "policy-2",
 		Namespace: ns1,
-		Raw:       []byte(testPolicyConfig),
+		Config:    testPolicyConfig,
 		Labels:    map[string]string{},
 	})
 
 	if !listener.waitToRecieve(time.Second * 3) {
-		t.Errorf("waiting listener events canceled by timeout, received %d", len(listener.received))
-		t.Logf("%v", listener.received)
+		t.Errorf("waiting listener events canceled by timeout, received %v", listener.received)
 	}
 
 	watcher.Unsubscribe(ClientId{
@@ -414,26 +378,28 @@ func Test_WatcherUnsibscribe(t *testing.T) {
 		Labels:    map[string]string{},
 	})
 
-	fakeApiCreatePolicy(t, clientSet, models.Policy{
+	fake.CreatePolicy(t, clientSet, models.Policy{
 		Name:      "policy-3",
 		Namespace: ns1,
-		Raw:       []byte(testPolicyConfig),
+		Config:    testPolicyConfig,
 		Labels:    map[string]string{},
 	})
 
 	assertReceived(t, []NsPolicySnapshot{
 		{
-			policies: []models.Policy{expectedPolicy1},
+			Policies: []models.Policy{expectedPolicy1},
 		},
 		{
-			policies: []models.Policy{expectedPolicy1, expectedPolicy2},
+			Policies: []models.Policy{expectedPolicy1, expectedPolicy2},
 		},
 	}, listener.received)
 }
 
 func assertReceived(t *testing.T, expected []NsPolicySnapshot, actual []NsPolicySnapshot) {
-	if len(actual[0].policies) > 0 {
+	t.Helper()
+	if len(actual[0].Policies) > 0 {
 		t.Errorf("the first received event must not contain policies, got %d", len(actual))
+		return
 	}
 
 	if len(actual)-1 != len(expected) {
@@ -441,57 +407,23 @@ func assertReceived(t *testing.T, expected []NsPolicySnapshot, actual []NsPolicy
 	}
 
 	received := actual[1:]
+	sortPolicySnapshot(received)
+	sortPolicySnapshot(expected)
+	if !reflect.DeepEqual(received, expected) {
+		t.Errorf("snapshots are not equal: got %v", received)
+	}
+}
 
-	for i := range expected {
-		if len(expected[i].policies) != len(received[i].policies) {
-			t.Errorf("snapshots are not equal, got %v", received)
-			return
-		}
-
-		for j := range expected[i].policies {
-			if !reflect.DeepEqual(expected[i].policies[j], received[i].policies[j]) {
-				t.Errorf("snapshots are not equal: got index %d, policy index %d, snapshot %s, expected %s",
-					i, j, received[i].policies[j], expected[i].policies[j])
-				return
+func sortPolicySnapshot(snapshots []NsPolicySnapshot) {
+	for si := range snapshots {
+		slices.SortFunc[[]models.Policy](snapshots[si].Policies, func(a models.Policy, b models.Policy) int {
+			if a.Name == b.Name {
+				return 0
 			}
-		}
+			if a.Name < b.Name {
+				return -1
+			}
+			return 1
+		})
 	}
-}
-
-func fakeApiDeletePolicy(t *testing.T, clientSet *fake.Clientset, ns, name string) {
-	if err := clientSet.AuthlinkV1beta1().Policies(ns).Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
-		t.Error(err)
-	}
-}
-
-func fakeApiCreatePolicy(t *testing.T, clientSet *fake.Clientset, policy models.Policy) models.Policy {
-	config := sdk.Config{}
-	err := yaml.Unmarshal(policy.Raw, &config)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	configJson, err := json.Marshal(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = clientSet.AuthlinkV1beta1().Policies(policy.Namespace).Create(context.Background(), &v1beta1.Policy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: policy.Name,
-		},
-		Spec: v1beta1.PolicySpec{
-			Config: config,
-			Match: v1beta1.PolicyMatch{
-				Labels: policy.Labels,
-			},
-		},
-	}, metav1.CreateOptions{})
-	if err != nil {
-		t.Error(err)
-	}
-
-	policy.Raw = configJson
-
-	return policy
 }

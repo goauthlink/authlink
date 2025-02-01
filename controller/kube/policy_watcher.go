@@ -5,8 +5,6 @@
 package kube
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -34,7 +32,7 @@ type (
 	}
 
 	NsPolicySnapshot struct {
-		policies []models.Policy
+		Policies []models.Policy
 	}
 
 	PolicyListener interface {
@@ -102,7 +100,7 @@ func (w *PolicyWatcher) Subscribe(clientId ClientId, listener PolicyListener) er
 	})
 
 	listener.Update(NsPolicySnapshot{
-		policies: w.cache.List(clientId.Namespace, clientId.Labels),
+		Policies: w.cache.List(clientId.Namespace, clientId.Labels),
 	})
 
 	return nil
@@ -130,15 +128,10 @@ func objToPolicy(obj interface{}) (*models.Policy, error) {
 		return nil, fmt.Errorf("can't parse added object: %s", obj)
 	}
 
-	rawPolicy, err := json.Marshal(kubePolicy.Spec.Config)
-	if err != nil {
-		return nil, fmt.Errorf("marshal policy %s: %s", kubePolicy.Name, err.Error())
-	}
-
 	return &models.Policy{
 		Name:      kubePolicy.Name,
 		Namespace: kubePolicy.Namespace,
-		Raw:       rawPolicy,
+		Config:    kubePolicy.Spec.Config,
 		Labels:    kubePolicy.Spec.Match.Labels,
 	}, nil
 }
@@ -152,10 +145,8 @@ func (w *PolicyWatcher) onAdd(obj interface{}) {
 
 	w.logger.Info(fmt.Sprintf("policy %s/%s added", policy.Name, policy.Namespace))
 
-	w.queue.Push(kubePolicyEvent{
-		policy: *policy,
-		op:     eventAddOp,
-	})
+	w.cache.Put(policy.Namespace, *policy)
+	w.listenersOnUpdate(policy.Namespace)
 }
 
 func (w *PolicyWatcher) onUpdate(oldObj interface{}, newObj interface{}) {
@@ -167,10 +158,8 @@ func (w *PolicyWatcher) onUpdate(oldObj interface{}, newObj interface{}) {
 
 	w.logger.Info(fmt.Sprintf("policy %s/%s updated", policy.Name, policy.Namespace))
 
-	w.queue.Push(kubePolicyEvent{
-		policy: *policy,
-		op:     eventUpdateOp,
-	})
+	w.cache.Put(policy.Namespace, *policy)
+	w.listenersOnUpdate(policy.Namespace)
 }
 
 func (w *PolicyWatcher) onDelete(obj interface{}) {
@@ -182,43 +171,20 @@ func (w *PolicyWatcher) onDelete(obj interface{}) {
 
 	w.logger.Info(fmt.Sprintf("policy %s/%s deleted", policy.Name, policy.Namespace))
 
-	w.queue.Push(kubePolicyEvent{
-		policy: *policy,
-		op:     eventDeleteOp,
-	})
+	w.cache.Delete(policy.Namespace, policy.Name)
+	w.listenersOnUpdate(policy.Namespace)
 }
 
-func (w *PolicyWatcher) pushPolicies(namespace string) {
+func (w *PolicyWatcher) listenersOnUpdate(namespace string) {
+	w.lsMu.Lock()
+	defer w.lsMu.Unlock()
+
 	if _, exists := w.listeners[namespace]; !exists {
 		return
 	}
 	for _, ls := range w.listeners[namespace] {
 		ls.listener.Update(NsPolicySnapshot{
-			policies: w.cache.List(namespace, ls.clientId.Labels),
+			Policies: w.cache.List(namespace, ls.clientId.Labels),
 		})
 	}
-}
-
-func (w *PolicyWatcher) Start(ctx context.Context) error {
-	w.queue.Consume(ctx, func(event kubePolicyEvent) error {
-		w.lsMu.Lock()
-		defer w.lsMu.Unlock()
-
-		switch event.op {
-		case eventAddOp:
-			w.cache.Put(event.policy.Namespace, event.policy)
-		case eventUpdateOp:
-			w.cache.Put(event.policy.Namespace, event.policy)
-		case eventDeleteOp:
-			w.cache.Delete(event.policy.Namespace, event.policy.Name)
-		default:
-			w.logger.Error(fmt.Sprintf("undefined policy event operation: %d", event.op))
-		}
-
-		w.pushPolicies(event.policy.Namespace)
-
-		return nil
-	})
-
-	return nil
 }
