@@ -9,14 +9,13 @@ import (
 	"crypto/x509"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/goauthlink/authlink/test/testdata"
 	"github.com/goauthlink/authlink/test/util"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -55,11 +54,14 @@ func Test_InitFiles(t *testing.T) {
 	config.PolicyFilePath = rootDir + "/policy.yaml"
 
 	agent, err := Init(config)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	checkerD := agent.policy.Data()
-
-	assert.Equal(t, map[string]interface{}{"users": []interface{}{"user1", "user2"}}, checkerD)
+	if !reflect.DeepEqual(map[string]interface{}{"users": []interface{}{"user1", "user2"}}, checkerD) {
+		t.Errorf("unexpected data, got %v", checkerD)
+	}
 }
 
 func Test_InitNoData(t *testing.T) {
@@ -71,9 +73,13 @@ func Test_InitNoData(t *testing.T) {
 	config.PolicyFilePath = rootDir + "/policy.yaml"
 
 	agent, err := Init(config)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	assert.Equal(t, nil, agent.policy.Data())
+	if agent.policy.Data() != nil {
+		t.Errorf("unexpected data, got %v", agent.policy.Data())
+	}
 }
 
 func Test_TLSListening(t *testing.T) {
@@ -84,12 +90,16 @@ func Test_TLSListening(t *testing.T) {
 	config.PolicyFilePath = rootDir + "/policy.yaml"
 
 	serverCert, err := tls.LoadX509KeyPair(rootDir+"/server.crt", rootDir+"/server.key")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	config.TLSCert = &serverCert
 	config.LogLevel = slog.LevelError
 
 	agent, err := Init(config)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	agentWg := sync.WaitGroup{}
 	agentWg.Add(1)
@@ -100,7 +110,9 @@ func Test_TLSListening(t *testing.T) {
 	time.Sleep(time.Second * 1)
 
 	clientCert, err := tls.LoadX509KeyPair(rootDir+"/client.crt", rootDir+"/client.key")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(testdata.TLSCACert)
 	client := http.Client{Transport: &http.Transport{
@@ -113,53 +125,19 @@ func Test_TLSListening(t *testing.T) {
 	request.Header.Set("x-path", "/endpoint")
 	request.Header.Set("x-method", "GET")
 	request.Header.Set("x-source", "client")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	response, err := client.Do(request)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	assert.Equal(t, http.StatusOK, response.StatusCode)
-
-	agent.runtime.Stop()
-	agentWg.Wait()
-}
-
-func Test_UpdateFiles(t *testing.T) {
-	rootDir, cleanFs := createFiles(t)
-	defer cleanFs()
-
-	config := DefaultConfig()
-	config.PolicyFilePath = rootDir + "/policy.yaml"
-	config.LogLevel = slog.LevelError
-	config.UpdateFilesSeconds = 1
-
-	agent, err := Init(config)
-	require.NoError(t, err)
-
-	agentWg := sync.WaitGroup{}
-	agentWg.Add(1)
-	go func() {
-		err = agent.Run()
-		agentWg.Done()
-	}()
-	time.Sleep(time.Second * 1)
-
-	assert.Equal(t, []byte(testPolicy), agent.policy.Policy())
-
-	newPolicy := `cn:
-  - header: "x-source2"
-policies:
-  - uri: ["/endpoint2"]
-    allow: ["client2"]`
-
-	require.NoError(t, util.ReWriteFileContent(rootDir+"/policy.yaml", []byte(newPolicy)))
-
-	time.Sleep(time.Second * 3)
-
-	assert.Equal(t, []byte(newPolicy), agent.policy.Policy())
+	if response.StatusCode != http.StatusOK {
+		t.Errorf("unexpected status, got %v", response.StatusCode)
+	}
 
 	agent.runtime.Stop()
 	agentWg.Wait()
-
-	require.NoError(t, err)
 }

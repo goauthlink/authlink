@@ -5,14 +5,15 @@
 package main
 
 import (
+	"log"
 	"os"
 
-	"github.com/goauthlink/authlink/agent/cmd/app"
+	"github.com/goauthlink/authlink/agent/cmd/run"
 )
 
 func main() {
-	if err := app.NewRootCommand().Execute(); err != nil {
-		println(err.Error())
+	if err := run.RunCmd(os.Args, []run.AgentRunExt{}); err != nil {
+		log.Fatal(err)
 		os.Exit(1)
 	}
 }

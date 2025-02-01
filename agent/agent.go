@@ -5,6 +5,7 @@
 package agent
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"os"
@@ -13,6 +14,26 @@ import (
 	"github.com/goauthlink/authlink/pkg/runtime"
 	"github.com/goauthlink/authlink/sdk/policy"
 )
+
+type Config struct {
+	HttpAddr        string
+	MonitoringAddr  string
+	LogLevel        slog.Level
+	LogCheckResults bool
+	DiscoverAddr    string
+	PolicyFilePath  string
+	DataFilePath    string
+	TLSCert         *tls.Certificate
+}
+
+func DefaultConfig() Config {
+	return Config{
+		HttpAddr:        ":8181",
+		MonitoringAddr:  ":9191",
+		LogLevel:        slog.LevelInfo,
+		LogCheckResults: false,
+	}
+}
 
 type Agent struct {
 	runtime *runtime.Runtime
@@ -42,9 +63,8 @@ func Init(config Config) (*Agent, error) {
 
 	agent.policy = NewPolicy(policy.NewChecker(), checkLogger)
 
-	updater := newUpdater(config, logger, agent.policy)
-	if err := updater.updateFiles(); err != nil {
-		return nil, err
+	if err := agent.loadFiles(); err != nil {
+		return nil, fmt.Errorf("loading files: %w", err)
 	}
 
 	httpServerOptions := []ServerOpt{
@@ -57,7 +77,7 @@ func Init(config Config) (*Agent, error) {
 
 	httpServer, err := NewHttpServer(config.HttpAddr, agent.policy, httpServerOptions...)
 	if err != nil {
-		return nil, fmt.Errorf("init http server: %w", err)
+		return nil, fmt.Errorf("initing http server: %w", err)
 	}
 
 	monitoringServerOpions := []monitoring.ServerOpt{
@@ -73,11 +93,9 @@ func Init(config Config) (*Agent, error) {
 		monitoringServer,
 	}, logger)
 
-	if config.UpdateFilesSeconds > 0 {
-		agent.runtime.AddServer(updater)
-	}
+	// discovery init
 
-	logger.Info("agent inited")
+	logger.Info("agent is ready")
 
 	return agent, nil
 }
@@ -96,4 +114,36 @@ func (a *Agent) Logger() *slog.Logger {
 
 func (a *Agent) Policy() *Policy {
 	return a.policy
+}
+
+func (a *Agent) loadFiles() error {
+	if len(a.config.PolicyFilePath) == 0 {
+		return nil
+	}
+
+	policyData, err := os.ReadFile(a.config.PolicyFilePath)
+	if err != nil {
+		return fmt.Errorf("policy file loading failed: %w", err)
+	}
+	if err := a.policy.SetPolicy(policyData); err != nil {
+		return fmt.Errorf("policy file updating failed: %w", err)
+	}
+	a.logger.Info("policy file loaded")
+
+	if len(a.config.DataFilePath) == 0 {
+		return nil
+	}
+
+	data, err := os.ReadFile(a.config.DataFilePath)
+	if err != nil {
+		return fmt.Errorf("data file loading failed: %s", err)
+	}
+
+	if err := a.policy.SetData(data); err != nil {
+		return fmt.Errorf("loading data.json: %w", err)
+	}
+
+	a.logger.Info("data file loaded")
+
+	return nil
 }

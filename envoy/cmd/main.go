@@ -5,14 +5,15 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/goauthlink/authlink/agent"
-	"github.com/goauthlink/authlink/agent/cmd/app"
+	"github.com/goauthlink/authlink/agent/cmd/run"
 	"github.com/goauthlink/authlink/envoy"
 	"github.com/goauthlink/authlink/pkg/runtime"
-	"github.com/spf13/cobra"
 )
 
 var grpcAddr string
@@ -23,8 +24,8 @@ func NewEnvoyExtension() *EnvoyExtension {
 	return &EnvoyExtension{}
 }
 
-func (r *EnvoyExtension) ConfigRunCmd(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&grpcAddr, "envoy-grpc-addr", ":8282", "set listening address of the envoy grpc server (e.g., [ip]:<port>)")
+func (r *EnvoyExtension) Flags(fs *flag.FlagSet) {
+	fs.StringVar(&grpcAddr, "envoy-grpc-addr", ":8282", "set listening address of the envoy grpc server (e.g., [ip]:<port>)")
 }
 
 func (r *EnvoyExtension) Server(runArgs []string, agent *agent.Agent) (runtime.Server, error) {
@@ -37,8 +38,8 @@ func (r *EnvoyExtension) Server(runArgs []string, agent *agent.Agent) (runtime.S
 }
 
 func main() {
-	if err := app.NewRootCommand(NewEnvoyExtension()).Execute(); err != nil {
-		println(err.Error())
+	if err := run.RunCmd(os.Args, []run.AgentRunExt{}); err != nil {
+		log.Fatal(err)
 		os.Exit(1)
 	}
 }
