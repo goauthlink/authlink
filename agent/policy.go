@@ -13,7 +13,15 @@ import (
 	"github.com/goauthlink/authlink/sdk/policy"
 )
 
-type Policy struct {
+type PolicyChecker interface {
+	Check(_ context.Context, in policy.CheckInput) (*policy.CheckResult, error)
+	SetData(data []byte) error
+	Data() interface{}
+	SetConfigs(configs []policy.Config) error
+	Configs() []policy.Config
+}
+
+type agentChecker struct {
 	checker             *policy.Checker
 	checkLogger         *CheckLogger
 	counterRqTotal      metrics.Metric
@@ -21,17 +29,17 @@ type Policy struct {
 	histogramRqDuration metrics.Metric
 }
 
-func NewPolicy(
+func NewPolicyChecker(
 	checker *policy.Checker,
 	checkLogger *CheckLogger,
-) *Policy {
+) *agentChecker {
 	counterRqTotal, _ := metrics.NewCounter("check_rq_total", "A counter of check requests")
 	counterRqFailed, _ := metrics.NewCounter("check_rq_failed", "A counter of failed check requests (500 response code)")
 	histogramRqDuration, _ := metrics.NewHistogram("check_rq_duration_ms", "A histogram of duration for check requests",
 		1, 2, 5, 10, 20, 100, 1000,
 	)
 
-	return &Policy{
+	return &agentChecker{
 		checker:             checker,
 		checkLogger:         checkLogger,
 		counterRqTotal:      counterRqTotal,
@@ -40,7 +48,7 @@ func NewPolicy(
 	}
 }
 
-func (p *Policy) Check(_ context.Context, in policy.CheckInput) (*policy.CheckResult, error) {
+func (p *agentChecker) Check(_ context.Context, in policy.CheckInput) (*policy.CheckResult, error) {
 	start := time.Now()
 
 	defer func() {
@@ -62,20 +70,20 @@ func (p *Policy) Check(_ context.Context, in policy.CheckInput) (*policy.CheckRe
 	return result, nil
 }
 
-func (p *Policy) SetData(data []byte) error {
+func (p *agentChecker) SetData(data []byte) error {
 	// todo: may by logging?
 	return p.checker.SetData(data)
 }
 
-func (p *Policy) Data() interface{} {
+func (p *agentChecker) Data() interface{} {
 	return p.checker.Data()
 }
 
-func (p *Policy) SetPolicy(policy []byte) error {
+func (p *agentChecker) SetConfigs(policy []policy.Config) error {
 	// todo: may by logging?
-	return p.checker.SetPolicy(policy)
+	return p.checker.SetConfigs(policy)
 }
 
-func (p *Policy) Policy() []byte {
+func (p *agentChecker) Configs() []policy.Config {
 	return p.checker.Policy()
 }

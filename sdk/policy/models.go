@@ -4,6 +4,13 @@
 
 package policy
 
+import (
+	"encoding/json"
+	"fmt"
+
+	"gopkg.in/yaml.v3"
+)
+
 // +k8s:deepcopy-gen=true
 
 type CnJWT struct {
@@ -38,8 +45,27 @@ type Variables map[string][]string
 // +k8s:deepcopy-gen=true
 
 type Config struct {
+	Name     string    `yaml:"name" json:"name,omitempty"`
 	Cn       []Cn      `yaml:"cn" json:"cn,omitempty"`
 	Vars     Variables `yaml:"vars" json:"vars,omitempty"`
 	Default  []string  `yaml:"default" json:"default,omitempty"`
 	Policies []Policy  `yaml:"policies" json:"policies,omitempty"`
+}
+
+func YamlToPolicyConfig(policyYaml []byte) (*Config, error) {
+	cfg := Config{}
+	if err := yaml.Unmarshal(policyYaml, &cfg); err != nil {
+		return nil, fmt.Errorf("parsing policy yaml: %w", err)
+	}
+
+	return &cfg, nil
+}
+
+func JsonToPolicyConfig(policyJson []byte) (*Config, error) {
+	cfg := Config{}
+	if err := json.Unmarshal(policyJson, &cfg); err != nil {
+		return nil, fmt.Errorf("parsing policy json: %w", err)
+	}
+
+	return &cfg, nil
 }

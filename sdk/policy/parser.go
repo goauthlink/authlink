@@ -37,6 +37,7 @@ type preparedPolicy struct {
 }
 
 type preparedConfig struct {
+	Name     string
 	Cn       []Cn
 	Default  preparedAllow
 	Policies []preparedPolicy
@@ -131,6 +132,7 @@ func PrepareConfig(config Config) (*preparedConfig, error) {
 		return nil, fmt.Errorf("fail to parse client: %s", err.Error())
 	}
 	preparedConfig := preparedConfig{
+		Name:    config.Name,
 		Cn:      config.Cn,
 		Default: *prepDefault,
 	}

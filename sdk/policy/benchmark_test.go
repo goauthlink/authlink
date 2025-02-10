@@ -6,8 +6,6 @@ package policy
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func Benchmark_CheckBase(b *testing.B) {
@@ -33,7 +31,15 @@ policies:
     allow: ["$var1"]`
 
 	checker := NewChecker()
-	require.NoError(b, checker.SetPolicy([]byte(config)))
+	pconfig, err := YamlToPolicyConfig([]byte(config))
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	if err := checker.SetConfigs([]Config{*pconfig}); err != nil {
+		b.Fatal(err)
+	}
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := checker.Check(CheckInput{
@@ -90,8 +96,18 @@ policies:
 }`)
 
 	checker := NewChecker()
-	require.NoError(b, checker.SetPolicy([]byte(config)))
-	require.NoError(b, checker.SetData(data))
+	pconfig, err := YamlToPolicyConfig([]byte(config))
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	if err := checker.SetConfigs([]Config{*pconfig}); err != nil {
+		b.Fatal(err)
+	}
+
+	if err := checker.SetData(data); err != nil {
+		b.Fatal(err)
+	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

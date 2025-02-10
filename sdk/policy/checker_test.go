@@ -5,20 +5,36 @@
 package policy
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"testing"
 
+	"github.com/goauthlink/authlink/pkg/testutils"
 	"github.com/goauthlink/authlink/test/util"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type testCase struct {
 	in              CheckInput
 	allowed         bool
-	wantedResultErr error
+	wantedResultErr string
+}
+
+func initChecker(t *testing.T, checker *Checker, yamlPolicy, data []byte) {
+	pconfig, err := YamlToPolicyConfig(yamlPolicy)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := checker.SetConfigs([]Config{*pconfig}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(data) > 0 {
+		if err := checker.SetData(data); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func Test_QueryInVars(t *testing.T) {
@@ -56,17 +72,17 @@ policies:
 
 	// from vars
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
-	require.NoError(t, checker.SetData(data))
+	initChecker(t, checker, []byte(config), data)
 
-	result, err := checker.Check(CheckInput{
+	in := CheckInput{
 		Uri:     "/endpoint1",
 		Method:  http.MethodGet,
 		Headers: map[string]string{"x-source1": "client1"},
-	})
+	}
+	result, err := checker.Check(in)
 
-	require.NoError(t, err)
-	assert.Equal(t, true, result.Allow)
+	testutils.AssertNoError(t, err)
+	assertAllowed(t, result.Allow, true, in)
 
 	// from query
 	result, err = checker.Check(CheckInput{
@@ -75,8 +91,8 @@ policies:
 		Headers: map[string]string{"x-source1": "client1"},
 	})
 
-	assert.NoError(t, err)
-	assert.Equal(t, true, result.Allow)
+	testutils.AssertNoError(t, err)
+	assertAllowed(t, result.Allow, true, in)
 
 	// with prefix
 	result, err = checker.Check(CheckInput{
@@ -85,9 +101,11 @@ policies:
 		Headers: map[string]string{"x-source2": "client1"},
 	})
 
-	assert.NoError(t, err)
-	assert.Equal(t, true, result.Allow)
+	testutils.AssertNoError(t, err)
+	assertAllowed(t, result.Allow, true, in)
 }
+
+// todo: test multiple configs
 
 func Test_InvalidateData(t *testing.T) {
 	config := `
@@ -110,18 +128,20 @@ policies:
 }`)
 
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
-	require.NoError(t, checker.SetData(data))
+	initChecker(t, checker, []byte(config), data)
 
-	result, err := checker.Check(CheckInput{
+	in := CheckInput{
 		Uri:     "/endpoint",
 		Method:  http.MethodGet,
 		Headers: map[string]string{"x-source": "client1"},
-	})
+	}
+	result, err := checker.Check(in)
 
-	assert.NoError(t, err)
-	assert.Equal(t, []string{"client1", "client2"}, checker.dataCache["{.team[*].name}"])
-	assert.Equal(t, true, result.Allow)
+	testutils.AssertNoError(t, err)
+	if !reflect.DeepEqual([]string{"client1", "client2"}, checker.dataCache["{.team[*].name}"]) {
+		t.Fatalf("got %s", checker.dataCache["{.team[*].name}"])
+	}
+	assertAllowed(t, result.Allow, true, in)
 
 	newData := []byte(`{
 "team": [
@@ -134,18 +154,23 @@ policies:
   ]
 }`)
 
-	require.NoError(t, checker.SetData(newData))
-	assert.NotContains(t, checker.dataCache, "{.team[*].name}")
+	testutils.AssertNoError(t, checker.SetData(newData))
+	if _, exist := checker.dataCache["{.team[*].name}"]; exist {
+		t.Fatal("{.team[*].name} exists in cache")
+	}
 
-	result, err = checker.Check(CheckInput{
+	in = CheckInput{
 		Uri:     "/endpoint",
 		Method:  http.MethodGet,
 		Headers: map[string]string{"x-source": "client1"},
-	})
+	}
+	result, err = checker.Check(in)
 
-	assert.Equal(t, []string{"client3", "client4"}, checker.dataCache["{.team[*].name}"])
-	assert.NoError(t, err)
-	assert.Equal(t, false, result.Allow)
+	if !reflect.DeepEqual([]string{"client3", "client4"}, checker.dataCache["{.team[*].name}"]) {
+		t.Fatalf("got %s", checker.dataCache["{.team[*].name}"])
+	}
+	testutils.AssertNoError(t, err)
+	assertAllowed(t, result.Allow, false, in)
 }
 
 func Test_Data(t *testing.T) {
@@ -187,8 +212,8 @@ policies:
 }`)
 
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
-	require.NoError(t, checker.SetData(data))
+	initChecker(t, checker, []byte(config), data)
+	testutils.AssertNoError(t, checker.SetData(data))
 
 	cases := []testCase{
 		{
@@ -265,15 +290,17 @@ policies:
 				Headers: map[string]string{"x-source1": "client3"},
 			},
 			allowed:         false,
-			wantedResultErr: errors.New("jsonpath finding results failure: team3 is not found"),
+			wantedResultErr: "jsonpath finding results failure: team3 is not found",
 		},
 	}
 
 	for _, c := range cases {
-		result, err := checker.Check(c.in)
-		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s", c.in.Uri, c.in.Method)
-		assert.Equal(t, c.wantedResultErr, result.Err)
+		t.Run("case", func(t *testing.T) {
+			result, err := checker.Check(c.in)
+			testutils.AssertNoError(t, err)
+			assertAllowed(t, result.Allow, c.allowed, c.in)
+			assertWantedErrEqual(t, *result, c.wantedResultErr)
+		})
 	}
 }
 
@@ -294,7 +321,7 @@ policies:
     allow: ["$var2", "$var3"]`
 
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
+	initChecker(t, checker, []byte(config), []byte{})
 
 	cases := []testCase{
 		{
@@ -340,8 +367,8 @@ policies:
 
 	for _, c := range cases {
 		result, err := checker.Check(c.in)
-		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		testutils.AssertNoError(t, err)
+		assertAllowed(t, result.Allow, c.allowed, c.in)
 	}
 }
 
@@ -358,7 +385,7 @@ policies:
     allow: ["*"]`
 
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
+	initChecker(t, checker, []byte(config), []byte{})
 
 	cases := []testCase{
 		{
@@ -405,8 +432,8 @@ policies:
 
 	for _, c := range cases {
 		result, err := checker.Check(c.in)
-		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		testutils.AssertNoError(t, err)
+		assertAllowed(t, result.Allow, c.allowed, c.in)
 	}
 }
 
@@ -415,7 +442,7 @@ func Test_JWT_TokenValidation(t *testing.T) {
 		"/keyfile1.key": []byte("secret"),
 		"/keyfile2.key": []byte("invalid_secret"),
 	})
-	require.NoError(t, err)
+	testutils.AssertNoError(t, err)
 	defer cleanFs()
 
 	config := `
@@ -435,7 +462,7 @@ policies:
     allow: ["jwt1:jhon", "jwt2:jhon"]`
 
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
+	initChecker(t, checker, []byte(config), []byte{})
 
 	jwt := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiamhvbiJ9.RO0UD8zn-NRJ7XlIuQMfeyoxLclFPF7N5PRkIJMgsck" // payload with user:jhon
 
@@ -452,22 +479,16 @@ policies:
 				Uri:     "/ep1",
 				Headers: map[string]string{"Auth2": jwt},
 			},
-			wantedResultErr: ErrInvalidClientName{
-				errMessage: "parse jwt token: token signature is invalid: signature is invalid",
-			},
-			allowed: false,
+			wantedResultErr: "parse jwt token: token signature is invalid: signature is invalid",
+			allowed:         false,
 		},
 	}
 
 	for _, c := range cases {
 		result, err := checker.Check(c.in)
-		require.NoError(t, err)
-		if c.wantedResultErr != nil {
-			require.EqualError(t, c.wantedResultErr, result.Err.Error(), result.ClientName)
-		} else {
-			require.NoError(t, result.Err)
-		}
-		assert.Equal(t, c.allowed, result.Allow, result.ClientName)
+		testutils.AssertNoError(t, err)
+		assertWantedErrEqual(t, *result, c.wantedResultErr)
+		assertAllowed(t, result.Allow, c.allowed, c.in)
 	}
 }
 
@@ -490,7 +511,7 @@ policies:
     allow: ["jessica"]`
 
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
+	initChecker(t, checker, []byte(config), []byte{})
 
 	jwt := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiamhvbiJ9.aFR_EpsSSaquZiO8ow8ygy_RvNyMBPfBMPnNA9jyEDM" // payload with user:jhon
 
@@ -528,22 +549,16 @@ policies:
 				Uri:     "/ep1",
 				Headers: map[string]string{"Authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7Im5hbWUiOiJqaG9uIn19.Jk_NZmxy5LkxGjS_dhvDq-yXxvTs6xSNxErHoen9qhs"},
 			},
-			allowed: false,
-			wantedResultErr: ErrInvalidClientName{
-				errMessage: fmt.Sprintf(errPayloadFieldIsntStringType, "user", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7Im5hbWUiOiJqaG9uIn19.Jk_NZmxy5LkxGjS_dhvDq-yXxvTs6xSNxErHoen9qhs"),
-			},
+			allowed:         false,
+			wantedResultErr: fmt.Sprintf(errPayloadFieldIsntStringType, "user", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7Im5hbWUiOiJqaG9uIn19.Jk_NZmxy5LkxGjS_dhvDq-yXxvTs6xSNxErHoen9qhs"),
 		},
 	}
 
 	for _, c := range cases {
 		result, err := checker.Check(c.in)
-		require.NoError(t, err)
-		if c.wantedResultErr != nil {
-			require.EqualError(t, c.wantedResultErr, result.Err.Error())
-		} else {
-			require.NoError(t, result.Err)
-		}
-		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, parsed client name: %s, headers: %s", c.in.Uri, c.in.Method, result.ClientName, c.in.Headers)
+		testutils.AssertNoError(t, err)
+		assertWantedErrEqual(t, *result, c.wantedResultErr)
+		assertAllowed(t, result.Allow, c.allowed, c.in)
 	}
 }
 
@@ -555,7 +570,7 @@ default:
   - client1`
 
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
+	initChecker(t, checker, []byte(config), []byte{})
 
 	cases := []testCase{
 		{
@@ -583,8 +598,8 @@ default:
 
 	for _, c := range cases {
 		result, err := checker.Check(c.in)
-		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, result.Allow)
+		testutils.AssertNoError(t, err)
+		assertAllowed(t, result.Allow, c.allowed, c.in)
 	}
 }
 
@@ -600,7 +615,7 @@ policies:
     allow: ["prefix:client1"]`
 
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
+	initChecker(t, checker, []byte(config), []byte{})
 
 	cases := []testCase{
 		{
@@ -623,8 +638,8 @@ policies:
 
 	for _, c := range cases {
 		result, err := checker.Check(c.in)
-		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		testutils.AssertNoError(t, err)
+		assertAllowed(t, result.Allow, c.allowed, c.in)
 	}
 }
 
@@ -639,7 +654,7 @@ policies:
     allow: ["client2"]`
 
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
+	initChecker(t, checker, []byte(config), []byte{})
 
 	cases := []testCase{
 		{
@@ -678,8 +693,8 @@ policies:
 
 	for _, c := range cases {
 		result, err := checker.Check(c.in)
-		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		testutils.AssertNoError(t, err)
+		assertAllowed(t, result.Allow, c.allowed, c.in)
 	}
 }
 
@@ -696,7 +711,7 @@ policies:
     allow: ["client3"]`
 
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
+	initChecker(t, checker, []byte(config), []byte{})
 
 	cases := []testCase{
 		// get
@@ -753,8 +768,8 @@ policies:
 
 	for _, c := range cases {
 		result, err := checker.Check(c.in)
-		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		testutils.AssertNoError(t, err)
+		assertAllowed(t, result.Allow, c.allowed, c.in)
 	}
 }
 
@@ -771,7 +786,7 @@ policies:
     allow: ["client2"]`
 
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
+	initChecker(t, checker, []byte(config), []byte{})
 
 	cases := []testCase{
 		{
@@ -794,8 +809,8 @@ policies:
 
 	for _, c := range cases {
 		result, err := checker.Check(c.in)
-		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		testutils.AssertNoError(t, err)
+		assertAllowed(t, result.Allow, c.allowed, c.in)
 	}
 }
 
@@ -812,7 +827,7 @@ policies:
     allow: ["client2"]`
 
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
+	initChecker(t, checker, []byte(config), []byte{})
 
 	cases := []testCase{
 		{
@@ -835,8 +850,8 @@ policies:
 
 	for _, c := range cases {
 		result, err := checker.Check(c.in)
-		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		testutils.AssertNoError(t, err)
+		assertAllowed(t, result.Allow, c.allowed, c.in)
 	}
 }
 
@@ -853,7 +868,7 @@ policies:
     allow: ["client3"]`
 
 	checker := NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(config)))
+	initChecker(t, checker, []byte(config), []byte{})
 
 	cases := []testCase{
 		// GET user/*
@@ -927,7 +942,22 @@ policies:
 
 	for _, c := range cases {
 		result, err := checker.Check(c.in)
-		assert.NoError(t, err)
-		assert.Equal(t, c.allowed, result.Allow, "url: %s, method: %s, x-source: %s", c.in.Uri, c.in.Method, c.in.Headers["x-source"])
+		testutils.AssertNoError(t, err)
+		assertAllowed(t, result.Allow, c.allowed, c.in)
+	}
+}
+
+func assertAllowed(t *testing.T, got, wanted bool, in CheckInput) {
+	t.Helper()
+	if got != wanted {
+		t.Fatalf("got '%t' but got '%t' url: %s, method: %s", got, wanted, in.Uri, in.Method)
+	}
+}
+
+func assertWantedErrEqual(t *testing.T, got CheckResult, wanted string) {
+	if len(wanted) > 0 {
+		testutils.AssertErrorContains(t, got.Err, wanted)
+	} else {
+		testutils.AssertNoError(t, got.Err)
 	}
 }

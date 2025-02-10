@@ -19,11 +19,19 @@ import (
 
 func newTestServer(t *testing.T, pol string) *Server {
 	checker := policy.NewChecker()
-	require.NoError(t, checker.SetPolicy([]byte(pol)))
+	pconfig, err := policy.YamlToPolicyConfig([]byte(pol))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checker.SetConfigs([]policy.Config{*pconfig}); err != nil {
+		t.Fatal(err)
+	}
 
-	policy := agent.NewPolicy(checker, nil)
+	policy := agent.NewPolicyChecker(checker, nil)
 	srv, err := New(":0", policy)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	return srv
 }

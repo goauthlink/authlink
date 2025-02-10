@@ -14,7 +14,7 @@ message PolicySnapshot {
     repeated string policy = 1;
 }
 
-service DicsoveryService {
+service DiscoveryService {
     rpc Policy(GetPolicy)
        returns (stream PolicySnapshot) {}
 }

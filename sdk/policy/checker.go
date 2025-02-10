@@ -14,7 +14,6 @@ import (
 	"sync"
 
 	"github.com/golang-jwt/jwt/v5"
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -41,8 +40,13 @@ type preparedCn struct {
 	Name   string
 }
 
+type configItem struct {
+	prepared preparedConfig
+	orig     Config
+}
+
 type Checker struct {
-	prepCfg   *preparedConfig
+	items     []configItem
 	rawPolicy []byte
 	data      interface{}
 	dataMux   sync.RWMutex
@@ -50,26 +54,27 @@ type Checker struct {
 }
 
 func NewChecker() *Checker {
-	// todo: default policy
 	return &Checker{
+		items:   []configItem{},
 		dataMux: sync.RWMutex{},
 	}
 }
 
-func (c *Checker) SetPolicy(policy []byte) error {
-	config := Config{}
-	if err := yaml.Unmarshal(policy, &config); err != nil {
-		return fmt.Errorf("invalid policy yaml: %w", err)
-	}
-
-	prepConfig, err := PrepareConfig(config)
-	if err != nil {
-		return fmt.Errorf("parse policy: %s", err)
+func (c *Checker) SetConfigs(configs []Config) error {
+	items := []configItem{}
+	for _, c := range configs {
+		prepConfig, err := PrepareConfig(c)
+		if err != nil {
+			return fmt.Errorf("parse policy: %s", err)
+		}
+		items = append(items, configItem{
+			prepared: *prepConfig,
+			orig:     c,
+		})
 	}
 
 	c.dataMux.Lock()
-	c.prepCfg = prepConfig
-	c.rawPolicy = policy
+	c.items = items
 	c.dataMux.Unlock()
 
 	return nil
@@ -95,8 +100,16 @@ func (c *Checker) Data() interface{} {
 	return c.data
 }
 
-func (c *Checker) Policy() []byte {
-	return c.rawPolicy
+func (c *Checker) Policy() []Config {
+	c.dataMux.Lock()
+	defer c.dataMux.Unlock()
+
+	items := []Config{}
+	for _, c := range c.items {
+		items = append(items, c.orig)
+	}
+
+	return items
 }
 
 type CheckResult struct {
@@ -120,12 +133,9 @@ func newCheckResult(allow bool, cn *preparedCn, endpoint string, err error) *Che
 	}
 }
 
-func (c *Checker) Check(in CheckInput) (*CheckResult, error) {
-	c.dataMux.RLock()
-	defer c.dataMux.RUnlock()
-
+func (c *Checker) checkConfig(in CheckInput, prepConfig *preparedConfig) (*CheckResult, error) {
 	// define client prefix and name
-	cn, err := c.defineCn(in)
+	cn, err := defineCn(in, prepConfig)
 	if err != nil {
 		if invalidCnErr, ok := err.(ErrInvalidClientName); ok {
 			return newCheckResult(false, nil, "", invalidCnErr), nil
@@ -134,7 +144,7 @@ func (c *Checker) Check(in CheckInput) (*CheckResult, error) {
 	}
 
 	// check routes
-	for _, policy := range c.prepCfg.Policies {
+	for _, policy := range prepConfig.Policies {
 		if policy.RegexUri != nil {
 			if policy.RegexUri.MatchString(in.Uri) {
 				if policy.Method[0] == "*" || slices.Contains(policy.Method, in.Method) {
@@ -151,9 +161,27 @@ func (c *Checker) Check(in CheckInput) (*CheckResult, error) {
 	}
 
 	// apply default
-	isAllowed, err := c.isAllowed(c.prepCfg.Default, cn)
+	isAllowed, err := c.isAllowed(prepConfig.Default, cn)
 
 	return newCheckResult(isAllowed, cn, "default", err), nil
+}
+
+func (c *Checker) Check(in CheckInput) (*CheckResult, error) {
+	c.dataMux.RLock()
+	defer c.dataMux.RUnlock()
+
+	for _, item := range c.items {
+		cres, err := c.checkConfig(in, &item.prepared)
+		if err != nil {
+			return nil, err
+		}
+
+		if cres.Err != nil || cres.Allow {
+			return cres, nil
+		}
+	}
+
+	return newCheckResult(false, nil, "", nil), nil
 }
 
 func (c *Checker) isAllowed(allow preparedAllow, cn *preparedCn) (bool, error) {
@@ -202,8 +230,8 @@ func (c *Checker) isAllowed(allow preparedAllow, cn *preparedCn) (bool, error) {
 	return false, nil
 }
 
-func (c *Checker) defineCn(in CheckInput) (*preparedCn, error) {
-	for _, cn := range c.prepCfg.Cn {
+func defineCn(in CheckInput, prepConfig *preparedConfig) (*preparedCn, error) {
+	for _, cn := range prepConfig.Cn {
 		if cn.Header != nil {
 			if val, ok := in.Headers[*cn.Header]; ok {
 				return &preparedCn{

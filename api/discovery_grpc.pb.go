@@ -19,27 +19,27 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DicsoveryService_Policy_FullMethodName = "/authlink.DicsoveryService/Policy"
+	DiscoveryService_Policy_FullMethodName = "/authlink.DiscoveryService/Policy"
 )
 
-// DicsoveryServiceClient is the client API for DicsoveryService service.
+// DiscoveryServiceClient is the client API for DiscoveryService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type DicsoveryServiceClient interface {
+type DiscoveryServiceClient interface {
 	Policy(ctx context.Context, in *GetPolicy, opts ...grpc.CallOption) (grpc.ServerStreamingClient[PolicySnapshot], error)
 }
 
-type dicsoveryServiceClient struct {
+type discoveryServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewDicsoveryServiceClient(cc grpc.ClientConnInterface) DicsoveryServiceClient {
-	return &dicsoveryServiceClient{cc}
+func NewDiscoveryServiceClient(cc grpc.ClientConnInterface) DiscoveryServiceClient {
+	return &discoveryServiceClient{cc}
 }
 
-func (c *dicsoveryServiceClient) Policy(ctx context.Context, in *GetPolicy, opts ...grpc.CallOption) (grpc.ServerStreamingClient[PolicySnapshot], error) {
+func (c *discoveryServiceClient) Policy(ctx context.Context, in *GetPolicy, opts ...grpc.CallOption) (grpc.ServerStreamingClient[PolicySnapshot], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &DicsoveryService_ServiceDesc.Streams[0], DicsoveryService_Policy_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &DiscoveryService_ServiceDesc.Streams[0], DiscoveryService_Policy_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -54,69 +54,69 @@ func (c *dicsoveryServiceClient) Policy(ctx context.Context, in *GetPolicy, opts
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DicsoveryService_PolicyClient = grpc.ServerStreamingClient[PolicySnapshot]
+type DiscoveryService_PolicyClient = grpc.ServerStreamingClient[PolicySnapshot]
 
-// DicsoveryServiceServer is the server API for DicsoveryService service.
-// All implementations must embed UnimplementedDicsoveryServiceServer
+// DiscoveryServiceServer is the server API for DiscoveryService service.
+// All implementations must embed UnimplementedDiscoveryServiceServer
 // for forward compatibility.
-type DicsoveryServiceServer interface {
+type DiscoveryServiceServer interface {
 	Policy(*GetPolicy, grpc.ServerStreamingServer[PolicySnapshot]) error
-	mustEmbedUnimplementedDicsoveryServiceServer()
+	mustEmbedUnimplementedDiscoveryServiceServer()
 }
 
-// UnimplementedDicsoveryServiceServer must be embedded to have
+// UnimplementedDiscoveryServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedDicsoveryServiceServer struct{}
+type UnimplementedDiscoveryServiceServer struct{}
 
-func (UnimplementedDicsoveryServiceServer) Policy(*GetPolicy, grpc.ServerStreamingServer[PolicySnapshot]) error {
+func (UnimplementedDiscoveryServiceServer) Policy(*GetPolicy, grpc.ServerStreamingServer[PolicySnapshot]) error {
 	return status.Errorf(codes.Unimplemented, "method Policy not implemented")
 }
-func (UnimplementedDicsoveryServiceServer) mustEmbedUnimplementedDicsoveryServiceServer() {}
-func (UnimplementedDicsoveryServiceServer) testEmbeddedByValue()                          {}
+func (UnimplementedDiscoveryServiceServer) mustEmbedUnimplementedDiscoveryServiceServer() {}
+func (UnimplementedDiscoveryServiceServer) testEmbeddedByValue()                          {}
 
-// UnsafeDicsoveryServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to DicsoveryServiceServer will
+// UnsafeDiscoveryServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DiscoveryServiceServer will
 // result in compilation errors.
-type UnsafeDicsoveryServiceServer interface {
-	mustEmbedUnimplementedDicsoveryServiceServer()
+type UnsafeDiscoveryServiceServer interface {
+	mustEmbedUnimplementedDiscoveryServiceServer()
 }
 
-func RegisterDicsoveryServiceServer(s grpc.ServiceRegistrar, srv DicsoveryServiceServer) {
-	// If the following call pancis, it indicates UnimplementedDicsoveryServiceServer was
+func RegisterDiscoveryServiceServer(s grpc.ServiceRegistrar, srv DiscoveryServiceServer) {
+	// If the following call pancis, it indicates UnimplementedDiscoveryServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&DicsoveryService_ServiceDesc, srv)
+	s.RegisterService(&DiscoveryService_ServiceDesc, srv)
 }
 
-func _DicsoveryService_Policy_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _DiscoveryService_Policy_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(GetPolicy)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(DicsoveryServiceServer).Policy(m, &grpc.GenericServerStream[GetPolicy, PolicySnapshot]{ServerStream: stream})
+	return srv.(DiscoveryServiceServer).Policy(m, &grpc.GenericServerStream[GetPolicy, PolicySnapshot]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type DicsoveryService_PolicyServer = grpc.ServerStreamingServer[PolicySnapshot]
+type DiscoveryService_PolicyServer = grpc.ServerStreamingServer[PolicySnapshot]
 
-// DicsoveryService_ServiceDesc is the grpc.ServiceDesc for DicsoveryService service.
+// DiscoveryService_ServiceDesc is the grpc.ServiceDesc for DiscoveryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var DicsoveryService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "authlink.DicsoveryService",
-	HandlerType: (*DicsoveryServiceServer)(nil),
+var DiscoveryService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "authlink.DiscoveryService",
+	HandlerType: (*DiscoveryServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Policy",
-			Handler:       _DicsoveryService_Policy_Handler,
+			Handler:       _DiscoveryService_Policy_Handler,
 			ServerStreams: true,
 		},
 	},

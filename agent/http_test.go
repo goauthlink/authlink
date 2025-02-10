@@ -13,7 +13,6 @@ import (
 
 	"github.com/goauthlink/authlink/sdk/policy"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func initTestHttpServer(t *testing.T, pol *string, cfg *Config, opts ...ServerOpt) (*HttpServer, *bytes.Buffer) {
@@ -35,12 +34,20 @@ func initTestHttpServer(t *testing.T, pol *string, cfg *Config, opts ...ServerOp
 	var checker *policy.Checker
 	if pol != nil {
 		checker = policy.NewChecker()
-		require.NoError(t, checker.SetPolicy([]byte(*pol)))
+		pconfig, err := policy.YamlToPolicyConfig([]byte(*pol))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := checker.SetConfigs([]policy.Config{*pconfig}); err != nil {
+			t.Fatal(err)
+		}
 	}
-	policy := NewPolicy(checker, nil)
+	policy := NewPolicyChecker(checker, nil)
 
 	httpServer, err := NewHttpServer(fCfg.HttpAddr, policy, srvOptions...)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	return httpServer, buf
 }

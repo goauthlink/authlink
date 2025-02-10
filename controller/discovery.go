@@ -55,7 +55,7 @@ func (pl *pListener) Update(snapshot kube.NsPolicySnapshot) {
 }
 
 type discoveryServer struct {
-	api.UnimplementedDicsoveryServiceServer
+	api.UnimplementedDiscoveryServiceServer
 	ctx           context.Context
 	config        Config
 	logger        *slog.Logger
@@ -76,7 +76,7 @@ func newDiscoveryServer(config Config, logger *slog.Logger, kubeapi *kube.Api) (
 	}
 	ds.grpcServer = grpc.NewServer()
 
-	api.RegisterDicsoveryServiceServer(ds.grpcServer, ds)
+	api.RegisterDiscoveryServiceServer(ds.grpcServer, ds)
 
 	return ds, nil
 }
@@ -87,6 +87,7 @@ func (s *discoveryServer) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("listen tcp for discovery server on %s: %w", s.config.DiscoveryAddr, err)
 	}
+	defer tcpListener.Close()
 
 	s.logger.Info(fmt.Sprintf("discovery server is starting on %s", s.config.DiscoveryAddr))
 
@@ -129,6 +130,7 @@ func (s *discoveryServer) Policy(rq *api.GetPolicy, stream grpc.ServerStreamingS
 }
 
 func (s *discoveryServer) Shutdown(_ context.Context) error {
+	s.grpcServer.GracefulStop()
 	return nil
 }
 

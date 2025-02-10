@@ -30,11 +30,11 @@ func WithLogger(logger *slog.Logger) ServerOpt {
 type Server struct {
 	server *grpc.Server
 	logger *slog.Logger
-	policy *agent.Policy
+	policy agent.PolicyChecker
 	addr   string
 }
 
-func New(addr string, policy *agent.Policy, opts ...ServerOpt) (*Server, error) {
+func New(addr string, policy agent.PolicyChecker, opts ...ServerOpt) (*Server, error) {
 	statshandler, err := newStatsHandler()
 	if err != nil {
 		return nil, err

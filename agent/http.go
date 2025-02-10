@@ -24,7 +24,7 @@ type HttpServer struct {
 	httpserver *http.Server
 	cert       *tls.Certificate
 	logger     *slog.Logger
-	policy     *Policy
+	policy     *agentChecker
 }
 
 type ServerOpt func(*HttpServer)
@@ -41,7 +41,7 @@ func WithLogger(logger *slog.Logger) ServerOpt {
 	}
 }
 
-func NewHttpServer(addr string, policy *Policy, opts ...ServerOpt) (*HttpServer, error) {
+func NewHttpServer(addr string, policy *agentChecker, opts ...ServerOpt) (*HttpServer, error) {
 	httpSrv := &HttpServer{
 		httpserver: &http.Server{
 			Addr: addr,
@@ -118,7 +118,7 @@ func (httpServer *HttpServer) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func routerPostCheckHandler(policy *Policy, logger *slog.Logger) http.Handler {
+func routerPostCheckHandler(policy *agentChecker, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		in := sdk_policy.CheckInput{
 			Uri:     r.Header.Get("x-path"), // todo: move to settings
